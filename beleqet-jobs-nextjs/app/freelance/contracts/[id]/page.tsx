@@ -2,6 +2,8 @@
 
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useGetContractQuery, useApproveMilestoneMutation } from '@/lib/store/slices/freelanceApiSlice';
+import { StatusBadge } from '@/components/StatusBadge';
+import { MilestoneList } from '@/components/MilestoneList';
 import toast from 'react-hot-toast';
 
 interface FreelanceContractPageProps {
@@ -40,6 +42,19 @@ export default function FreelanceContractPage({ params }: FreelanceContractPageP
   }
 
   const isClient = user?.id === contract.clientId;
+  const milestones = contract.milestones || [];
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const progress = milestones.length > 0
+    ? (milestones.filter(m => m.status === 'APPROVED').length / milestones.length) * 100
+    : 0;
 
   return (
     <div className="container-page py-10">
@@ -76,53 +91,66 @@ export default function FreelanceContractPage({ params }: FreelanceContractPageP
               <p className="mt-2 text-sm font-semibold text-ink">{contract.freelancer.firstName} {contract.freelancer.lastName}</p>
             </div>
           </div>
+
+          {/* Progress bar */}
+          {milestones.length > 0 && (
+            <div className="rounded-2xl border border-border bg-pageBg p-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted">Overall Progress</span>
+                <span className="font-semibold text-ink">{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted mt-1">
+                {milestones.filter(m => m.status === 'APPROVED').length} of {milestones.length} milestones completed
+              </p>
+            </div>
+          )}
         </section>
 
         <aside className="space-y-6">
           <div className="rounded-2xl border border-border bg-pageBg p-6">
             <p className="text-sm text-muted">Contract status</p>
-            <p className="mt-2 text-xl font-semibold text-ink">{contract.status.replace('_', ' ')}</p>
+            <div className="mt-2">
+              <StatusBadge status={contract.status as any} size="md" />
+            </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-white p-6">
             <p className="text-sm text-muted">Started on</p>
-            <p className="mt-2 text-sm font-semibold text-ink">{new Date(contract.startedAt).toLocaleDateString()}</p>
+            <p className="mt-2 text-sm font-semibold text-ink">{formatDate(contract.startedAt)}</p>
           </div>
+
+          {contract.completedAt && (
+            <div className="rounded-2xl border border-border bg-white p-6">
+              <p className="text-sm text-muted">Completed on</p>
+              <p className="mt-2 text-sm font-semibold text-ink">{formatDate(contract.completedAt)}</p>
+            </div>
+          )}
+
+          {contract.dispute && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+              <p className="text-sm font-semibold text-red-800">Dispute Active</p>
+              <p className="mt-2 text-sm text-red-600">{contract.dispute.reason}</p>
+              {contract.dispute.resolution && (
+                <p className="mt-2 text-sm text-red-700">Resolution: {contract.dispute.resolution}</p>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
       <div className="mt-8 rounded-2xl border border-border bg-white p-8">
         <h2 className="text-lg font-semibold text-ink mb-4">Milestones</h2>
-        {contract.milestones?.length ? (
-          <div className="space-y-4">
-            {contract.milestones.map((milestone) => (
-              <div key={milestone.id} className="rounded-2xl border border-border bg-pageBg p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{milestone.title || `Milestone ${milestone.id.slice(0, 6)}`}</p>
-                    <p className="text-sm text-muted">{milestone.description || 'No description provided.'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-ink">{milestone.amount?.toLocaleString()} ETB</p>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted">{milestone.status}</p>
-                  </div>
-                </div>
-                {isClient && milestone.status === 'PENDING' && (
-                  <button
-                    type="button"
-                    disabled={isApproving}
-                    onClick={() => handleApprove(milestone.id)}
-                    className="mt-4 inline-flex rounded-lg bg-brandGreen px-4 py-2 text-sm font-semibold text-white hover:bg-darkGreen disabled:opacity-60"
-                  >
-                    {isApproving ? 'Approving…' : 'Approve milestone'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted">No milestones available for this contract.</p>
-        )}
+        <MilestoneList
+          milestones={milestones}
+          onApprove={isClient ? handleApprove : undefined}
+          canApprove={isClient}
+        />
       </div>
     </div>
   );

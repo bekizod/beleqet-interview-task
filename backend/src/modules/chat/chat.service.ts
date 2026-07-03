@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   /** Create or fetch a chat room between two users (e.g. for a freelance contract) */
   async createOrGetRoom(userId1: string, userId2: string, contractId?: string) {
@@ -109,7 +113,7 @@ export class ChatService {
     });
     if (!participant) throw new NotFoundException('User is not a participant of this chat room');
 
-    return this.prisma.message.create({
+    const message = await this.prisma.message.create({
       data: {
         roomId,
         senderId,
@@ -118,6 +122,54 @@ export class ChatService {
       include: { 
         sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } } 
       }
+    });
+
+    // ── Send email to the recipient (the OTHER user in the room) ──
+    // Fire-and-forget: don't block message delivery if email fails
+    this.notifyRecipientByEmail(roomId, senderId, message.sender.firstName, message.sender.lastName, content)
+      .catch((err) =>
+        this.logger.error(`Failed to send message email for room ${roomId}: ${err.message}`)
+      );
+
+    return message;
+  }
+
+  /**
+   * Sends an email to the OTHER participant in the room (not the sender).
+   * Only sends if there's exactly 2 participants (1:1 chat).
+   */
+  private async notifyRecipientByEmail(
+    roomId: string,
+    senderId: string,
+    senderFirstName: string,
+    senderLastName: string,
+    messageContent: string
+  ): Promise<void> {
+    const participants = await this.prisma.chatParticipant.findMany({
+      where: { roomId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } }
+      },
+    });
+
+    // Only send email for 1:1 chat (2 participants)
+    if (participants.length !== 2) {
+      this.logger.debug(`Room ${roomId} has ${participants.length} participants — skipping email`);
+      return;
+    }
+
+    const recipient = participants.find(p => p.userId !== senderId);
+    if (!recipient) {
+      this.logger.warn(`Could not find recipient in room ${roomId}`);
+      return;
+    }
+
+    await this.emailService.sendNewMessageEmail({
+      to: recipient.user.email,
+      recipientName: recipient.user.firstName,
+      senderName: `${senderFirstName} ${senderLastName}`,
+      messagePreview: messageContent,
+      roomId,
     });
   }
 

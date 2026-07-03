@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bull';
 
 import { PrismaModule } from './prisma/prisma.module';
+import { EmailModule } from './modules/email/email.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { JobsModule } from './modules/jobs/jobs.module';
@@ -31,9 +32,9 @@ import { TelegramModule } from './modules/telegram/telegram.module';
 
     // ── Rate limiting ──────────────────────────────────────────────────────
     ThrottlerModule.forRoot([
-      { name: 'short',  ttl: 1_000,  limit: 10  },
-      { name: 'medium', ttl: 10_000, limit: 50  },
-      { name: 'long',   ttl: 60_000, limit: 200 },
+      { name: 'short', ttl: 1_000, limit: 10 },
+      { name: 'medium', ttl: 10_000, limit: 50 },
+      { name: 'long', ttl: 60_000, limit: 200 },
     ]),
 
     // ── Event bus (in-process events between modules) ──────────────────────
@@ -64,7 +65,9 @@ import { TelegramModule } from './modules/telegram/telegram.module';
 
     // ── Feature modules ────────────────────────────────────────────────────
     PrismaModule,
+    EmailModule,
     QueuesModule,
+    EmailModule,
     AuthModule,
     UsersModule,
     JobsModule,
@@ -81,4 +84,4 @@ import { TelegramModule } from './modules/telegram/telegram.module';
     TelegramModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

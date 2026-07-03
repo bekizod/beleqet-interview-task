@@ -7,6 +7,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { QUEUE_NAMES, APPLICATION_JOBS, ANALYTICS_JOBS } from '../queues/queues.constants';
+import { EmailService } from '../email/email.service';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 
@@ -17,11 +18,12 @@ export class ApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly emailService: EmailService,
     @InjectQueue(QUEUE_NAMES.APPLICATION)
     private readonly applicationQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ANALYTICS)
     private readonly analyticsQueue: Queue,
-  ) {}
+  ) { }
 
   async submit(userId: string, dto: CreateApplicationDto) {
     const job = await this.prisma.job.findFirst({
@@ -51,7 +53,7 @@ export class ApplicationsService {
         },
         include: {
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
-          job:  { select: { id: true, title: true, companyId: true } },
+          job: { select: { id: true, title: true, companyId: true } },
         },
       });
 
@@ -114,6 +116,17 @@ export class ApplicationsService {
       userId,
     });
 
+    // Send confirmation email to the candidate (fire-and-forget)
+    this.emailService.sendApplicationSubmittedEmail({
+      to: application.user.email,
+      firstName: application.user.firstName,
+      jobTitle: job.title,
+      companyName: job.company.name,
+      applicationId: application.id,
+    }).catch((err) =>
+      this.logger.error(`Failed to send application confirmation email to ${application.user.email}: ${err.message}`)
+    );
+
     this.logger.log(`Application ${application.id} submitted — screening queued`);
     return application;
   }
@@ -152,9 +165,13 @@ export class ApplicationsService {
   }
 
   async updateStatus(id: string, status: string, employerId: string) {
-    // 1. Verify the application exists AND belongs to a job owned by this employer
+    // 1. Fetch full application with candidate + job + company so we can send emails
     const application = await this.prisma.application.findFirst({
       where: { id, job: { company: { userId: employerId } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        job: { include: { company: true } },
+      },
     });
 
     if (!application) {
@@ -162,9 +179,50 @@ export class ApplicationsService {
     }
 
     // 2. Update the status
-    return this.prisma.application.update({
+    const updated = await this.prisma.application.update({
       where: { id },
       data: { status: status as never },
     });
+
+    // 3. Send in-app notification to the candidate
+    const statusMessages: Record<string, { title: string; body: string }> = {
+      SHORTLISTED:         { title: `🎉 You've been shortlisted for ${application.job.title}`, body: 'Congratulations! The employer has reviewed your application and shortlisted you.' },
+      INTERVIEW_SCHEDULED: { title: `📅 Interview scheduled for ${application.job.title}`, body: 'An interview has been arranged. Check your dashboard for details.' },
+      OFFERED:             { title: `🎊 Job offer received for ${application.job.title}`, body: `${application.job.company.name} has extended a job offer. Review it in your dashboard.` },
+      REJECTED:            { title: `Application update for ${application.job.title}`, body: 'Thank you for your interest. Unfortunately your application was not successful this time.' },
+      WITHDRAWN:           { title: `Application withdrawn for ${application.job.title}`, body: 'Your application has been marked as withdrawn.' },
+    };
+
+    const msg = statusMessages[status];
+    if (msg) {
+      // In-app notification via Prisma directly (no queue dependency)
+      this.prisma.notification.create({
+        data: {
+          userId: application.userId,
+          type: `application.${status.toLowerCase()}`,
+          title: msg.title,
+          body: msg.body,
+          channel: 'IN_APP',
+          metadata: { applicationId: id, jobId: application.jobId, status },
+        },
+      }).catch((err) =>
+        this.logger.error(`Failed to create in-app notification for ${application.userId}: ${err.message}`)
+      );
+
+      // Email notification
+      this.emailService.sendApplicationStatusChangedEmail({
+        to:          application.user.email,
+        firstName:   application.user.firstName,
+        jobTitle:    application.job.title,
+        companyName: application.job.company.name,
+        status,
+        applicationId: id,
+      }).catch((err) =>
+        this.logger.error(`Failed to send status email to ${application.user.email}: ${err.message}`)
+      );
+    }
+
+    this.logger.log(`Application ${id} status updated to ${status} by employer ${employerId}`);
+    return updated;
   }
 }

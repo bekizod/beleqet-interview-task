@@ -16,6 +16,21 @@ export enum BidStatus {
   WITHDRAWN = 'WITHDRAWN',
 }
 
+export enum ContractStatus {
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  DISPUTED = 'DISPUTED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum MilestoneStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  REVISION_REQUESTED = 'REVISION_REQUESTED',
+}
+
 export interface CreateFreelanceJobDto {
   title: string;
   description: string;
@@ -99,6 +114,28 @@ export interface Bid {
   };
 }
 
+export interface Deliverable {
+  id: string;
+  milestoneId: string;
+  fileUrl?: string;
+  notes?: string;
+  submittedAt: string;
+}
+
+export interface Milestone {
+  id: string;
+  contractId: string;
+  title: string;
+  description?: string;
+  amount: number;
+  deadline: string;
+  status: MilestoneStatus;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  deliverables?: Deliverable[];
+}
+
 export interface Contract {
   id: string;
   freelanceJobId: string;
@@ -106,31 +143,36 @@ export interface Contract {
   freelancerId: string;
   agreedAmount: number;
   currency: string;
-  status: string;
+  status: ContractStatus;
   startedAt: string;
   completedAt?: string;
   updatedAt: string;
   freelanceJob?: {
     id: string;
     title: string;
+    description?: string;
+    budgetMin: number;
+    budgetMax: number;
   };
   client: {
     id: string;
     firstName: string;
     lastName: string;
+    email?: string;
   };
   freelancer: {
     id: string;
     firstName: string;
     lastName: string;
+    email?: string;
   };
-  milestones?: {
+  milestones?: Milestone[];
+  dispute?: {
     id: string;
-    title?: string;
-    description?: string;
-    amount?: number;
-    status: string;
-  }[];
+    reason: string;
+    resolution?: string;
+    resolvedAt?: string;
+  };
 }
 
 export const freelanceApi = api.injectEndpoints({

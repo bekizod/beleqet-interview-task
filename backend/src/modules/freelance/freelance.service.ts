@@ -6,7 +6,7 @@ export class CreateFreelanceJobDto {
   title: string; description: string; categoryId: string;
   budgetMin: number; budgetMax: number; pricingType?: string;
   deadlineDays: number; skills: string[];
-  
+
   // New Freelance fields
   locationPreference?: string;
   experienceLevel?: string;
@@ -18,7 +18,7 @@ export class CreateBidDto {
 
 @Injectable()
 export class FreelanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createJob(clientId: string, dto: CreateFreelanceJobDto) {
     return this.prisma.freelanceJob.create({
@@ -35,7 +35,7 @@ export class FreelanceService {
     const where: Record<string, unknown> = { status: { in: ['OPEN', 'FUNDED'] } };
     if (category) where['category'] = { slug: category };
     if (q) where['OR'] = [
-      { title:       { contains: q, mode: 'insensitive' } },
+      { title: { contains: q, mode: 'insensitive' } },
       { description: { contains: q, mode: 'insensitive' } },
     ];
 
@@ -136,7 +136,7 @@ export class FreelanceService {
       include: {
         milestones: { include: { deliverables: true } },
         freelanceJob: true,
-        client:     { select: { id: true, firstName: true, lastName: true } },
+        client: { select: { id: true, firstName: true, lastName: true } },
         freelancer: { select: { id: true, firstName: true, lastName: true } },
       },
     });

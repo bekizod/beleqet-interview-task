@@ -10,6 +10,7 @@ import { RegisterDto } from './dto/register.dto';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { QUEUE_NAMES, NOTIFICATION_JOBS } from '../queues/queues.constants';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
   ) { }
 
@@ -41,9 +43,18 @@ export class AuthService {
 
     this.logger.log(`New user registered: ${user.email} (${user.role})`);
 
-    // Fire-and-forget: email queue failure must NOT crash registration
+    // Send welcome email immediately (fire-and-forget)
+    this.emailService.sendWelcomeEmail({
+      to: user.email,
+      firstName: user.firstName,
+      role: user.role,
+    }).catch((err) =>
+      this.logger.error(`Failed to send welcome email to ${user.email}: ${err.message}`)
+    );
+
+    // Send verification email (fire-and-forget)
     this.sendVerificationEmail(user.id).catch((err) =>
-      this.logger.error(`Failed to enqueue verification email for ${user.email}: ${err.message}`)
+      this.logger.error(`Failed to send verification email for ${user.email}: ${err.message}`)
     );
 
     return this.issueTokens(user);
@@ -60,6 +71,15 @@ export class AuthService {
   }
 
   async login(user: { id: string; email: string; firstName: string; lastName: string; role: string }) {
+    // Send login notification email (fire-and-forget)
+    this.emailService.sendLoginNotificationEmail({
+      to: user.email,
+      firstName: user.firstName,
+      loginTime: new Date(),
+    }).catch((err) =>
+      this.logger.error(`Failed to send login notification to ${user.email}: ${err.message}`)
+    );
+
     return this.issueTokens(user);
   }
 
@@ -98,10 +118,10 @@ export class AuthService {
 
     const verifyUrl = `${this.config.get('FRONTEND_URL')}/auth/verify-email?token=${token}`;
 
-    await this.notificationsQueue.add(NOTIFICATION_JOBS.SEND_EMAIL, {
+    await this.emailService.sendVerificationEmail({
       to: user.email,
-      subject: 'Verify your Beleqet Account',
-      html: `<p>Hi ${user.firstName},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">Verify Email</a></p>`
+      firstName: user.firstName,
+      verifyUrl,
     });
   }
 
@@ -136,10 +156,10 @@ export class AuthService {
 
     const resetUrl = `${this.config.get('FRONTEND_URL')}/auth/reset-password?token=${token}`;
 
-    await this.notificationsQueue.add(NOTIFICATION_JOBS.SEND_EMAIL, {
+    await this.emailService.sendPasswordResetEmail({
       to: user.email,
-      subject: 'Reset your Beleqet Password',
-      html: `<p>Hi ${user.firstName},</p><p>You requested a password reset. Click the link below to set a new password:</p><p><a href="${resetUrl}">Reset Password</a></p>`
+      firstName: user.firstName,
+      resetUrl,
     });
 
     return { success: true, message: 'If an account exists, a reset link was sent.' };
@@ -152,12 +172,22 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await this.prisma.user.update({
+    const user = await this.prisma.user.update({
       where: { id: verificationToken.userId },
-      data: { passwordHash }
+      data: { passwordHash },
+      select: { email: true, firstName: true },
     });
 
     await this.prisma.verificationToken.deleteMany({ where: { userId: verificationToken.userId, type: 'PASSWORD_RESET' } });
+
+    // Send confirmation email (fire-and-forget)
+    this.emailService.sendPasswordChangedEmail({
+      to: user.email,
+      firstName: user.firstName,
+    }).catch((err) =>
+      this.logger.error(`Failed to send password changed email to ${user.email}: ${err.message}`)
+    );
+
     return { success: true, message: 'Password reset successfully' };
   }
 

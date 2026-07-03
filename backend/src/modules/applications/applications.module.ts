@@ -15,4 +15,4 @@ import { ApplicationsController } from './applications.controller';
   controllers: [ApplicationsController],
   exports: [ApplicationsService],
 })
-export class ApplicationsModule {}
+export class ApplicationsModule { }

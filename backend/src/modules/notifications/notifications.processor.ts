@@ -4,7 +4,7 @@ import { Job } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QUEUE_NAMES, NOTIFICATION_JOBS } from '../queues/queues.constants';
-import * as nodemailer from 'nodemailer';
+import { EmailService } from '../email/email.service';
 
 interface InAppPayload {
   userId: string;
@@ -29,21 +29,12 @@ export interface EmailPayload {
 @Processor(QUEUE_NAMES.NOTIFICATIONS)
 export class NotificationsProcessor {
   private readonly logger = new Logger(NotificationsProcessor.name);
-  private readonly transporter: nodemailer.Transporter;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-  ) {
-    this.transporter = nodemailer.createTransport({
-      host: this.config.get<string>('SMTP_HOST'),
-      port: this.config.get<number>('SMTP_PORT'),
-      auth: {
-        user: this.config.get<string>('SMTP_USER'),
-        pass: this.config.get<string>('SMTP_PASS'),
-      },
-    });
-  }
+    private readonly emailService: EmailService,
+  ) {}
 
   @Process(NOTIFICATION_JOBS.SEND_IN_APP)
   async sendInApp(job: Job<InAppPayload>) {
@@ -85,21 +76,11 @@ export class NotificationsProcessor {
     }
   }
 
+  /** Handles ad-hoc raw HTML emails enqueued from other modules. */
   @Process(NOTIFICATION_JOBS.SEND_EMAIL)
   async sendEmail(job: Job<EmailPayload>) {
     const { to, subject, html } = job.data;
     if (!to) return;
-    
-    try {
-      await this.transporter.sendMail({
-        from: this.config.get<string>('EMAIL_FROM', 'Beleqet <noreply@beleqet.com>'),
-        to,
-        subject,
-        html,
-      });
-      this.logger.debug(`Email → ${to}: ${subject}`);
-    } catch (e) {
-      this.logger.warn(`Email failed: ${(e as Error).message}`);
-    }
+    await this.emailService.sendRaw({ to, subject, html });
   }
 }

@@ -33,6 +33,7 @@ import {
   QUEUE_NAMES, APPLICATION_JOBS, NOTIFICATION_JOBS,
   ANALYTICS_JOBS, SCORING,
 } from '../queues/queues.constants';
+import { EmailService } from '../email/email.service';
 
 // ── Payload types ──────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export class ScreeningProcessor {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.ANALYTICS)    private readonly analyticsQueue: Queue,
   ) {
@@ -125,6 +127,20 @@ export class ScreeningProcessor {
       data: { status: newStatus as never },
     });
 
+    // Fetch full application with user and company info for emails
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        job: { include: { company: true } },
+      },
+    });
+
+    if (!application) {
+      this.logger.error(`Application ${applicationId} not found after scoring`);
+      return;
+    }
+
     // e. Log event
     await this.prisma.eventLog.create({
       data: {
@@ -165,6 +181,29 @@ export class ScreeningProcessor {
       metadata: { applicationId, jobId: job.data.jobId, score: scoreResult.overallScore },
     });
 
+    // Send status update email to candidate
+    if (isShortlisted) {
+      this.emailService.sendApplicationShortlistedEmail({
+        to: application.user.email,
+        firstName: application.user.firstName,
+        jobTitle,
+        companyName: application.job.company.name,
+        applicationId,
+        score: scoreResult.overallScore,
+      }).catch((err) =>
+        this.logger.error(`Failed to send shortlisted email to ${application.user.email}: ${err.message}`)
+      );
+    } else if (isAutoRejected) {
+      this.emailService.sendApplicationRejectedEmail({
+        to: application.user.email,
+        firstName: application.user.firstName,
+        jobTitle,
+        companyName: application.job.company.name,
+      }).catch((err) =>
+        this.logger.error(`Failed to send rejected email to ${application.user.email}: ${err.message}`)
+      );
+    }
+
     if (isShortlisted) {
       // Auto-schedule interview if score is very high
       if (scoreResult.overallScore >= 90) {
@@ -185,6 +224,25 @@ export class ScreeningProcessor {
         body: `A candidate scored ${scoreResult.overallScore}/100 — review their profile now.`,
         metadata: { applicationId, score: scoreResult.overallScore },
       });
+
+      // Get recruiter info and send email
+      const company = await this.prisma.company.findUnique({
+        where: { id: job.data.companyId },
+        include: { user: true },
+      });
+
+      if (company && scoreResult.overallScore >= SCORING.AUTO_SHORTLIST_THRESHOLD) {
+        this.emailService.sendStrongCandidateAlertEmail({
+          to: company.user.email,
+          recruiterName: company.user.firstName,
+          jobTitle,
+          applicantName: `${application.user.firstName} ${application.user.lastName}`,
+          applicationId,
+          score: scoreResult.overallScore,
+        }).catch((err) =>
+          this.logger.error(`Failed to send strong candidate alert to ${company.user.email}: ${err.message}`)
+        );
+      }
     }
 
     // h. Update analytics
@@ -205,7 +263,7 @@ export class ScreeningProcessor {
   // ── 2. Notify Recruiter ───────────────────────────────────────────────────
 
   @Process(APPLICATION_JOBS.NOTIFY_RECRUITER)
-  async handleNotifyRecruiter(job: BullJob<{ applicationId: string; jobTitle: string; companyId: string; applicantName: string }>) {
+  async handleNotifyRecruiter(job: BullJob<{ applicationId: string; jobId: string; jobTitle: string; companyId: string; applicantName: string }>) {
     this.logger.log(`[notify-recruiter] New application for ${job.data.jobTitle}`);
 
     // Find company owner and notify
@@ -223,6 +281,17 @@ export class ScreeningProcessor {
         metadata: { applicationId: job.data.applicationId },
       });
 
+      // Send email notification to recruiter
+      this.emailService.sendNewApplicationToRecruiterEmail({
+        to: company.user.email,
+        recruiterName: company.user.firstName,
+        jobTitle: job.data.jobTitle,
+        applicantName: job.data.applicantName,
+        applicationId: job.data.applicationId,
+      }).catch((err) =>
+        this.logger.error(`Failed to send recruiter email to ${company.user.email}: ${err.message}`)
+      );
+
       // Telegram notification if recruiter has connected Telegram
       if (company.user.telegramId) {
         await this.notificationsQueue.add(NOTIFICATION_JOBS.SEND_TELEGRAM, {
@@ -236,7 +305,7 @@ export class ScreeningProcessor {
   // ── 3. Schedule Interview ────────────────────────────────────────────────
 
   @Process(APPLICATION_JOBS.SCHEDULE_INTERVIEW)
-  async handleScheduleInterview(job: BullJob<{ applicationId: string; userId: string; jobId: string; jobTitle: string }>) {
+  async handleScheduleInterview(job: BullJob<{ applicationId: string; userId: string; jobId: string; jobTitle: string; companyId: string }>) {
     this.logger.log(`[schedule-interview] Scheduling for application ${job.data.applicationId}`);
 
     // Set a proposed interview slot 3 business days from now
@@ -252,6 +321,20 @@ export class ScreeningProcessor {
       },
     });
 
+    // Get application with user and company info
+    const application = await this.prisma.application.findUnique({
+      where: { id: job.data.applicationId },
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+        job: { include: { company: true } },
+      },
+    });
+
+    if (!application) {
+      this.logger.error(`Application ${job.data.applicationId} not found for interview scheduling`);
+      return;
+    }
+
     // Notify candidate
     await this.notificationsQueue.add(NOTIFICATION_JOBS.SEND_IN_APP, {
       userId: job.data.userId,
@@ -260,6 +343,18 @@ export class ScreeningProcessor {
       body: `An interview has been proposed for ${proposedSlot.toLocaleDateString()}. Check your dashboard for details.`,
       metadata: { applicationId: job.data.applicationId, interviewSlot: proposedSlot },
     });
+
+    // Send email to candidate
+    this.emailService.sendInterviewScheduledEmail({
+      to: application.user.email,
+      firstName: application.user.firstName,
+      jobTitle: job.data.jobTitle,
+      companyName: application.job.company.name,
+      applicationId: job.data.applicationId,
+      interviewSlot: proposedSlot,
+    }).catch((err) =>
+      this.logger.error(`Failed to send interview email to ${application.user.email}: ${err.message}`)
+    );
 
     this.logger.log(
       `[schedule-interview] Interview set for ${job.data.applicationId} at ${proposedSlot.toISOString()}`,

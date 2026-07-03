@@ -7,4 +7,4 @@ import { FreelanceController } from './freelance.controller';
   controllers: [FreelanceController],
   exports: [FreelanceService],
 })
-export class FreelanceModule {}
+export class FreelanceModule { }
