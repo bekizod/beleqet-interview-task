@@ -7,9 +7,10 @@ import { useLogoutMutation } from "@/lib/store/slices/authApiSlice";
 import { useDispatch } from "react-redux";
 import { logout as logoutAction } from "@/lib/store/slices/authSlice";
 import { useRouter } from "next/navigation";
-import { User, LogOut, Briefcase, Bell, Menu, LayoutDashboard, PlusCircle } from "lucide-react";
+import { User, LogOut, Briefcase, Bell, Menu, LayoutDashboard, PlusCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 import Cookies from "js-cookie";
+
 // Nav items shown to job seekers / unauthenticated users
 const seekerNavItems = [
   { label: "Find Jobs", href: "/jobs" },
@@ -31,15 +32,18 @@ const employerNavItems = [
 ];
 
 export default function Header() {
-  const { user, isAuthenticated } = useAuth();
-  const { data: profile } = useGetProfileQuery(undefined, { skip: !isAuthenticated });
-  const [logoutMutation] = useLogoutMutation();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: profile, isLoading: profileLoading, isFetching } = useGetProfileQuery(undefined, { 
+    skip: !isAuthenticated 
+  });
+  const [logoutMutation, { isLoading: isLoggingOut }] = useLogoutMutation();
   const dispatch = useDispatch();
   const router = useRouter();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
+  const isLoading = authLoading || profileLoading || isFetching;
   const isEmployer = profile?.role === 'EMPLOYER' || profile?.role === 'ADMIN';
 
   const navItems = isEmployer ? employerNavItems : seekerNavItems;
@@ -61,6 +65,41 @@ export default function Header() {
       window.location.href = '/login'; 
     }
   };
+
+  // Loading state for the header
+  if (isLoading) {
+    return (
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-border">
+        <div className="container-page flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 font-extrabold text-lg text-primary">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brandGreen text-white text-sm">
+              B
+            </span>
+            <span>
+              Beleqet <span className="text-brandGreen">Job</span>
+            </span>
+          </Link>
+
+          {/* Desktop nav loading skeleton */}
+          <nav className="hidden md:flex items-center gap-7">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+            ))}
+          </nav>
+
+          {/* Right side loading skeleton */}
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse" />
+              <div className="h-8 w-24 bg-gray-200 rounded-lg animate-pulse" />
+            </div>
+            <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse" />
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-border">
@@ -101,6 +140,7 @@ export default function Header() {
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  disabled={isLoggingOut}
                 >
                   <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
                     <span className="text-sm font-bold text-green-600">
@@ -168,10 +208,20 @@ export default function Header() {
                     <hr className="my-2" />
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      disabled={isLoggingOut}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <LogOut className="h-4 w-4" />
-                      Logout
+                      {isLoggingOut ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Logging out...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="h-4 w-4" />
+                          Logout
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -200,6 +250,7 @@ export default function Header() {
           <button
             className="md:hidden p-2 rounded-lg hover:bg-gray-100"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
+            disabled={isLoggingOut}
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -253,9 +304,17 @@ export default function Header() {
 
                 <button
                   onClick={handleLogout}
-                  className="text-sm font-medium text-red-600 hover:text-red-700 text-left"
+                  disabled={isLoggingOut}
+                  className="text-sm font-medium text-red-600 hover:text-red-700 text-left disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Logout
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Logging out...
+                    </>
+                  ) : (
+                    'Logout'
+                  )}
                 </button>
               </>
             ) : (
