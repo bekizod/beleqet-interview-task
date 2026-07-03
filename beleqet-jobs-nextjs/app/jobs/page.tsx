@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import JobsListing from "@/components/JobsListing";
+import EmployerRedirect from "@/components/EmployerRedirect";
 
 export const metadata = {
   title: "Find Jobs | Beleqet Jobs",
@@ -7,8 +8,10 @@ export const metadata = {
 
 export default function JobsPage() {
   return (
-    <Suspense fallback={<div className="container-page py-20 text-center text-muted">Loading jobs…</div>}>
-      <JobsListing />
-    </Suspense>
+    <EmployerRedirect>
+      <Suspense fallback={<div className="container-page py-20 text-center text-muted">Loading jobs…</div>}>
+        <JobsListing />
+      </Suspense>
+    </EmployerRedirect>
   );
 }

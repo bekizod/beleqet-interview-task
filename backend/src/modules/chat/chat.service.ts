@@ -9,12 +9,70 @@ export class ChatService {
 
   /** Create or fetch a chat room between two users (e.g. for a freelance contract) */
   async createOrGetRoom(userId1: string, userId2: string, contractId?: string) {
+    this.logger.log(`Creating/getting room for users: ${userId1} and ${userId2}`);
+    
+    // Try to find existing room between these two users
+    if (!contractId) {
+      const existingRoom = await this.prisma.chatRoom.findFirst({
+        where: {
+          participants: {
+            every: {
+              OR: [
+                { userId: userId1 },
+                { userId: userId2 }
+              ]
+            }
+          },
+          contractId: null
+        },
+        include: { 
+          participants: {
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+            }
+          }, 
+          messages: { 
+            take: 1, 
+            orderBy: { createdAt: 'desc' },
+            include: {
+              sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+            }
+          } 
+        }
+      });
+      
+      if (existingRoom && existingRoom.participants.length === 2) {
+        const participantIds = existingRoom.participants.map(p => p.userId).sort();
+        const requestedIds = [userId1, userId2].sort();
+        if (JSON.stringify(participantIds) === JSON.stringify(requestedIds)) {
+          this.logger.log(`Found existing room: ${existingRoom.id}`);
+          return existingRoom;
+        }
+      }
+    }
+    
     if (contractId) {
       const existing = await this.prisma.chatRoom.findUnique({
         where: { contractId },
-        include: { participants: true, messages: { take: 1, orderBy: { createdAt: 'desc' } } }
+        include: { 
+          participants: {
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+            }
+          }, 
+          messages: { 
+            take: 1, 
+            orderBy: { createdAt: 'desc' },
+            include: {
+              sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+            }
+          } 
+        }
       });
-      if (existing) return existing;
+      if (existing) {
+        this.logger.log(`Found existing contract room: ${existing.id}`);
+        return existing;
+      }
     }
     
     // Create new room
@@ -25,7 +83,18 @@ export class ChatService {
           create: [{ userId: userId1 }, { userId: userId2 }]
         }
       },
-      include: { participants: true, messages: true }
+      include: { 
+        participants: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+          }
+        }, 
+        messages: {
+          include: {
+            sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, role: true } }
+          }
+        }
+      }
     });
     
     this.logger.log(`Created new ChatRoom ${room.id} for users ${userId1} and ${userId2}`);

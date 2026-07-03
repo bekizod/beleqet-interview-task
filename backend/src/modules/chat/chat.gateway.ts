@@ -36,10 +36,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const token = tokenString.replace('Bearer ', '').trim();
       const payload = this.jwtService.verify(token);
       
-      client.data.user = payload;
-      this.logger.log(`[ChatGateway] Client connected: ${client.id} (User: ${payload.userId})`);
+      // JWT payload uses 'sub' for user ID
+      client.data.user = { userId: payload.sub, email: payload.email, role: payload.role };
+      this.logger.log(`[ChatGateway] Client connected: ${client.id} (User: ${payload.sub}, Email: ${payload.email})`);
     } catch (err) {
-      this.logger.warn(`[ChatGateway] Unauthorized connection attempt: ${client.id}`);
+      this.logger.warn(`[ChatGateway] Unauthorized connection attempt: ${client.id}. Error: ${(err as Error).message}`);
       client.disconnect();
     }
   }
@@ -54,17 +55,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket
   ) {
     const userId = client.data.user?.userId;
-    if (!userId || !data.roomId) return;
+    this.logger.log(`[join_room] Request from user ${userId} for room ${data.roomId}`);
+    
+    if (!userId || !data.roomId) {
+      this.logger.warn(`[join_room] Missing required data: userId=${userId}, roomId=${data.roomId}`);
+      return;
+    }
 
     try {
       client.join(data.roomId);
-      this.logger.log(`User ${userId} joined room ${data.roomId}`);
+      this.logger.log(`[join_room] User ${userId} joined room ${data.roomId}, socket ${client.id}`);
+      
+      // Log which rooms this socket is in
+      const rooms = Array.from(client.rooms);
+      this.logger.log(`[join_room] Socket ${client.id} is now in rooms: ${JSON.stringify(rooms)}`);
       
       // Fetch history and send only to the connecting user
       const history = await this.chatService.getRoomMessages(data.roomId, userId);
+      this.logger.log(`[join_room] Sending ${history.length} messages as history`);
       client.emit('room_history', history);
     } catch (err) {
-      this.logger.error(`Error joining room: ${(err as Error).message}`);
+      this.logger.error(`[join_room] Error: ${(err as Error).message}`, (err as Error).stack);
       client.emit('error', { message: 'Failed to join room' });
     }
   }
@@ -75,14 +86,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket
   ) {
     const userId = client.data.user?.userId;
-    if (!userId || !data.roomId || !data.content) return;
+    this.logger.log(`[send_message] Received from user ${userId}: ${JSON.stringify(data)}`);
+    
+    if (!userId || !data.roomId || !data.content) {
+      this.logger.warn(`[send_message] Missing required data: userId=${userId}, roomId=${data.roomId}, content=${!!data.content}`);
+      return;
+    }
 
     try {
+      this.logger.log(`[send_message] Saving message to room ${data.roomId}`);
       const savedMsg = await this.chatService.saveMessage(data.roomId, userId, data.content);
+      this.logger.log(`[send_message] Message saved with ID: ${savedMsg.id}`);
+      
+      // Get all sockets in the room
+      const socketsInRoom = await this.server.in(data.roomId).fetchSockets();
+      this.logger.log(`[send_message] Room ${data.roomId} has ${socketsInRoom.length} connected sockets`);
+      
       // Broadcast to everyone in the room (including sender)
       this.server.to(data.roomId).emit('new_message', savedMsg);
+      this.logger.log(`[send_message] Broadcast 'new_message' to room ${data.roomId}. Message:`, JSON.stringify(savedMsg));
     } catch (err) {
-      this.logger.error(`Error sending message: ${(err as Error).message}`);
+      this.logger.error(`[send_message] Error: ${(err as Error).message}`, (err as Error).stack);
       client.emit('error', { message: 'Failed to send message' });
     }
   }

@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { MapPin, Bookmark, Building2 } from "lucide-react";
-import type { Job } from "@/lib/mockData";
+import type { Job } from "@/lib/store/slices/jobsApiSlice";
 
 const typeStyles: Record<string, string> = {
-  "Full Time": "bg-brandGreen/10 text-brandGreen",
-  "Part Time": "bg-purpleAccent/10 text-purpleAccent",
-  Remote: "bg-cyanAccent/10 text-cyanAccent",
-  Hybrid: "bg-orangeAccent/10 text-orangeAccent",
-  "On-site": "bg-muted/10 text-muted",
-  Contract: "bg-redAccent/10 text-redAccent",
+  "FULL_TIME": "bg-brandGreen/10 text-brandGreen",
+  "PART_TIME": "bg-purpleAccent/10 text-purpleAccent",
+  "REMOTE": "bg-cyanAccent/10 text-cyanAccent",
+  "HYBRID": "bg-orangeAccent/10 text-orangeAccent",
+  "CONTRACT": "bg-redAccent/10 text-redAccent",
 };
 
 export default function JobCard({ job }: { job: Job }) {
+  const formatType = (type: string) => type.replace('_', ' ');
+  const formatPostedAgo = (date: string) => {
+    const now = new Date();
+    const posted = new Date(date);
+    const days = Math.floor((now.getTime() - posted.getTime()) / (1000 * 60 * 60 * 24));
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
+
   return (
     <Link
       href={`/jobs/${job.id}`}
@@ -25,7 +36,7 @@ export default function JobCard({ job }: { job: Job }) {
       </div>
 
       <h3 className="text-cardH3 mt-3 text-ink leading-snug line-clamp-2">{job.title}</h3>
-      <p className="text-sm text-muted mt-1">{job.company}</p>
+      <p className="text-sm text-muted mt-1">{job.company.name}</p>
 
       <div className="flex items-center gap-1 text-xs text-muted mt-2">
         <MapPin className="h-3.5 w-3.5" />
@@ -34,9 +45,9 @@ export default function JobCard({ job }: { job: Job }) {
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${typeStyles[job.type] ?? "bg-muted/10 text-muted"}`}>
-          {job.type}
+          {formatType(job.type)}
         </span>
-        <span className="text-[11px] text-muted">{job.postedAgo}</span>
+        <span className="text-[11px] text-muted">{formatPostedAgo(job.createdAt)}</span>
       </div>
     </Link>
   );

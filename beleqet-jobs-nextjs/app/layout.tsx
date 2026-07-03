@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import StoreProvider from "@/lib/store/providers";
+import { Toaster } from "react-hot-toast";
 
 // Using Inter via next/font/google requires network access to Google Fonts at
 // build time. If your deployment environment can reach fonts.googleapis.com,
@@ -24,9 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <StoreProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+          <Toaster position="top-right" />
+        </StoreProvider>
       </body>
     </html>
   );
