@@ -21,7 +21,7 @@ const seekerNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
-// Nav items shown to employers / admins
+// Nav items shown to employers
 const employerNavItems = [
   { label: "Dashboard", href: "/my-jobs" },
   { label: "Freelance", href: "/freelance" },
@@ -31,10 +31,17 @@ const employerNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
+// Nav items shown to admins
+const adminNavItems = [
+  { label: "Dashboard", href: "/admin/dashboard" },
+  { label: "About Us", href: "/about" },
+  { label: "Contact", href: "/contact" },
+];
+
 export default function Header() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { data: profile, isLoading: profileLoading, isFetching } = useGetProfileQuery(undefined, { 
-    skip: !isAuthenticated 
+  const { data: profile, isLoading: profileLoading, isFetching } = useGetProfileQuery(undefined, {
+    skip: !isAuthenticated
   });
   const [logoutMutation, { isLoading: isLoggingOut }] = useLogoutMutation();
   const dispatch = useDispatch();
@@ -44,9 +51,10 @@ export default function Header() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const isLoading = authLoading || profileLoading || isFetching;
-  const isEmployer = profile?.role === 'EMPLOYER' || profile?.role === 'ADMIN';
+  const isAdmin = profile?.role === 'ADMIN';
+  const isEmployer = profile?.role === 'EMPLOYER';
 
-  const navItems = isEmployer ? employerNavItems : seekerNavItems;
+  const navItems = isAdmin ? adminNavItems : isEmployer ? employerNavItems : seekerNavItems;
 
   const handleLogout = async () => {
     setShowUserMenu(false);
@@ -62,7 +70,7 @@ export default function Header() {
         Cookies.remove('refreshToken');
         Cookies.remove('user');
       }
-      window.location.href = '/login'; 
+      window.location.href = '/login';
     }
   };
 
@@ -172,7 +180,7 @@ export default function Header() {
                     </Link>
 
                     {/* Job seeker links */}
-                    {!isEmployer && (
+                    {!isEmployer && !isAdmin && (
                       <Link
                         href="/applications"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -205,6 +213,18 @@ export default function Header() {
                       </>
                     )}
 
+                    {/* Admin links */}
+                    {isAdmin && (
+                      <Link
+                        href="/admin/dashboard"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Admin Dashboard
+                      </Link>
+                    )}
+
                     <hr className="my-2" />
                     <button
                       onClick={handleLogout}
@@ -228,7 +248,7 @@ export default function Header() {
               </div>
 
               {/* Employer CTA in header */}
-              {isEmployer && (
+              {isEmployer && !isAdmin && (
                 <Link
                   href="/post-job"
                   className="hidden sm:inline-flex items-center rounded-full bg-brandGreen px-4 py-2 text-sm font-semibold text-white hover:bg-darkGreen transition-colors"
@@ -282,7 +302,7 @@ export default function Header() {
                   Profile
                 </Link>
 
-                {!isEmployer && (
+                {!isEmployer && !isAdmin && (
                   <Link
                     href="/applications"
                     className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
@@ -299,6 +319,16 @@ export default function Header() {
                     onClick={() => setShowMobileMenu(false)}
                   >
                     My Jobs
+                  </Link>
+                )}
+
+                {isAdmin && (
+                  <Link
+                    href="/admin/dashboard"
+                    className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    Admin Dashboard
                   </Link>
                 )}
 
