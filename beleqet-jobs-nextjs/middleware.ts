@@ -43,6 +43,11 @@ export async function middleware(request: NextRequest) {
 
   // Handle admin register page with conditional access
   if (pathname.startsWith('/admin/register')) {
+    // If admin is already logged in, redirect to dashboard
+    if (accessToken && userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+
     // Check if there are any admins in the database
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -66,6 +71,13 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       console.error('Error checking admin status:', error);
       // On error, allow access but page will handle the check
+    }
+  }
+
+  // Handle admin login page - redirect if already logged in as admin
+  if (pathname.startsWith('/admin/login')) {
+    if (accessToken && userRole === 'ADMIN') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     }
   }
 

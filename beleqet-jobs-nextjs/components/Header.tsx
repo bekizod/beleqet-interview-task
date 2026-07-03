@@ -50,7 +50,8 @@ export default function Header() {
   const isAdmin = profile?.role === 'ADMIN';
   const isEmployer = profile?.role === 'EMPLOYER';
 
-  const navItems = isAdmin ? adminNavItems : isEmployer ? employerNavItems : seekerNavItems;
+  // Show seeker nav items for public users, role-specific nav items for authenticated users
+  const navItems = !isAuthenticated ? seekerNavItems : isAdmin ? adminNavItems : isEmployer ? employerNavItems : seekerNavItems;
 
   const handleLogout = async () => {
     setShowUserMenu(false);
