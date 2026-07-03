@@ -32,11 +32,7 @@ const employerNavItems = [
 ];
 
 // Nav items shown to admins
-const adminNavItems = [
-  { label: "Dashboard", href: "/admin/dashboard" },
-  { label: "About Us", href: "/about" },
-  { label: "Contact", href: "/contact" },
-];
+const adminNavItems: { label: string; href: string }[] = [];
 
 export default function Header() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -213,17 +209,6 @@ export default function Header() {
                       </>
                     )}
 
-                    {/* Admin links */}
-                    {isAdmin && (
-                      <Link
-                        href="/admin/dashboard"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Admin Dashboard
-                      </Link>
-                    )}
 
                     <hr className="my-2" />
                     <button
@@ -322,15 +307,6 @@ export default function Header() {
                   </Link>
                 )}
 
-                {isAdmin && (
-                  <Link
-                    href="/admin/dashboard"
-                    className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
-                    onClick={() => setShowMobileMenu(false)}
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
 
                 <button
                   onClick={handleLogout}
