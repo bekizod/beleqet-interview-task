@@ -34,6 +34,12 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.isAuthenticated = true;
       state.isLoading = false;
+
+      // Set cookies for middleware access
+      if (typeof document !== 'undefined') {
+        document.cookie = `accessToken=${action.payload.accessToken}; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = `userRole=${action.payload.user.role}; path=/; max-age=86400; SameSite=Lax`;
+      }
     },
     logout: (state) => {
       state.accessToken = null;
@@ -41,6 +47,12 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.isLoading = false;
+
+      // Clear cookies
+      if (typeof document !== 'undefined') {
+        document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
+      }
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
@@ -51,6 +63,12 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.isLoading = false;
+
+      // Clear cookies
+      if (typeof document !== 'undefined') {
+        document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'userRole=; path=/; max-age=0; SameSite=Lax';
+      }
     },
   },
 });

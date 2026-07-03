@@ -13,14 +13,23 @@ class ResolveDisputeDto {
 }
 
 @ApiTags('admin')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  @Get('check-admins')
+  @ApiOperation({ summary: 'Check if any admins exist in the database' })
+  async checkAdmins() {
+    const adminCount = await this.prisma.user.count({
+      where: { role: 'ADMIN' },
+    });
+    return { hasAdmins: adminCount > 0, count: adminCount };
+  }
 
   @Get('users')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'List all users' })
   async getUsers() {
     return this.prisma.user.findMany({
@@ -29,12 +38,18 @@ export class AdminController {
   }
 
   @Patch('users/:id/suspend')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Suspend a user' })
   async suspendUser(@Param('id') id: string) {
     return this.prisma.user.update({ where: { id }, data: { isActive: false } });
   }
 
   @Get('escrow/disputes')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'List all escrow disputes' })
   async getDisputes() {
     return this.prisma.dispute.findMany({
@@ -43,6 +58,9 @@ export class AdminController {
   }
 
   @Patch('disputes/:id/resolve')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Resolve an escrow dispute' })
   async resolveDispute(@Param('id') id: string, @Body() dto: ResolveDisputeDto) {
     return this.prisma.dispute.update({
