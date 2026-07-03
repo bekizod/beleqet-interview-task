@@ -58,6 +58,7 @@ export interface Application {
     location: string;
     type: string;
     company: {
+      userId: string;
       id: string;
       name: string;
       logoUrl?: string;

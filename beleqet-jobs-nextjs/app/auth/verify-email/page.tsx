@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVerifyEmailMutation } from '@/lib/store/slices/authApiSlice';
 import toast from 'react-hot-toast';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [verifyEmail, { isLoading }] = useVerifyEmailMutation();
-  const [token, setToken] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MzAzOGZiMS1iZjc2LTRmYjMtOTQzMy1mYWY2NDkxY2I4YTciLCJlbWFpbCI6ImJlcmVrZXR3b2xkZTAxN0BnbWFpbC5jb20iLCJyb2xlIjoiRU1QTE9ZRVIiLCJpYXQiOjE3ODMwMTc2MDUsImV4cCI6MTc4MzAxODUwNX0.2CKGiXoumJiCVgbSWuYEsrup-yPDuHq3sYiw0Kd28eo');
+  const [token, setToken] = useState('');
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
@@ -81,5 +81,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
