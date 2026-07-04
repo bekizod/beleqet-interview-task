@@ -14,6 +14,7 @@ export default function ProfilePage() {
     firstName: '',
     lastName: '',
     phone: '',
+    telegramId: '',
     headline: '',
     bio: '',
     location: '',
@@ -37,6 +38,7 @@ export default function ProfilePage() {
         firstName: profile.firstName,
         lastName: profile.lastName,
         phone: profile.phone || '',
+        telegramId: profile.telegramId || '',
         headline: profile.headline || '',
         bio: profile.bio || '',
         location: profile.location || '',
@@ -128,6 +130,25 @@ export default function ProfilePage() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                     />
+                  </div>
+                  <div className="sm:col-span-6">
+                    <label htmlFor="telegramId" className="block text-sm font-medium text-gray-700">
+                      Telegram ID
+                      <span className="ml-2 text-xs font-normal text-gray-400">
+                        (start <a href="https://t.me/@Belqet_bot" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">@Belqet_bot</a> on Telegram to get your ID)
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      id="telegramId"
+                      value={formData.telegramId}
+                      onChange={(e) => setFormData({ ...formData, telegramId: e.target.value })}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                      placeholder="e.g. 123456789"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Once linked, you will receive instant Telegram notifications for bids, milestones, and contract updates.
+                    </p>
                   </div>
                   <div className="sm:col-span-6">
                     <label htmlFor="headline" className="block text-sm font-medium text-gray-700">
@@ -239,6 +260,27 @@ export default function ProfilePage() {
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Phone</dt>
                     <dd className="mt-1 text-sm text-gray-900">{profile?.phone || 'Not provided'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Telegram notifications</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {profile?.telegramId ? (
+                        <span className="inline-flex items-center gap-1.5 text-green-700">
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.43 13.67l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.718.889z"/>
+                          </svg>
+                          Linked (ID: {profile.telegramId})
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">
+                          Not linked —{' '}
+                          <button onClick={handleEdit} className="text-green-600 hover:underline">
+                            add your Telegram ID
+                          </button>
+                          {' '}to get instant notifications
+                        </span>
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Location</dt>

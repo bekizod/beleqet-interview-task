@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException } 
 import { IsNumber, IsInt, IsString, IsOptional, MinLength, Min, IsDateString } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateFreelanceJobDto } from './dto/create-freelance-job.dto';
 
 export class CreateBidDto {
@@ -47,7 +48,10 @@ export class SubmitMilestoneDto {
 
 @Injectable()
 export class FreelanceService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) { }
 
   async getCategories() {
     return this.prisma.freelanceCategory.findMany({
@@ -142,7 +146,16 @@ export class FreelanceService {
     });
     if (existing) throw new ConflictException('You have already submitted a bid');
 
-    return this.prisma.bid.create({ data: { ...dto, freelanceJobId: gigId, freelancerId } });
+    return this.prisma.bid.create({ data: { ...dto, freelanceJobId: gigId, freelancerId } }).then(async (bid) => {
+      // Notify the client that a new bid arrived
+      await this.notifications.notify(gig.clientId, {
+        type: 'NEW_BID',
+        title: 'New bid on your gig',
+        body: `Someone submitted a bid of ${dto.amount.toLocaleString()} ETB on "${gig.title}".`,
+        metadata: { bidId: bid.id, gigId },
+      });
+      return bid;
+    });
   }
 
   async acceptBid(bidId: string, clientId: string) {
@@ -179,6 +192,15 @@ export class FreelanceService {
       });
 
       return c;
+    });
+
+    // Notify the winning freelancer
+    const gig = await this.prisma.freelanceJob.findUnique({ where: { id: bid.freelanceJobId } });
+    await this.notifications.notify(bid.freelancerId, {
+      type: 'BID_ACCEPTED',
+      title: '🎉 Your bid was accepted!',
+      body: `Your bid of ${bid.amount.toLocaleString()} ETB on "${gig?.title}" was accepted. A contract has been created.`,
+      metadata: { contractId: contract.id, gigId: bid.freelanceJobId },
     });
 
     return contract;
@@ -234,10 +256,19 @@ export class FreelanceService {
     if (m.status !== 'SUBMITTED')
       throw new ForbiddenException('Milestone must be SUBMITTED before it can be approved');
 
-    return this.prisma.milestone.update({
+    const updated = await this.prisma.milestone.update({
       where: { id: milestoneId },
       data: { status: 'APPROVED', approvedAt: new Date() },
     });
+
+    await this.notifications.notify(m.contract.freelancerId, {
+      type: 'MILESTONE_APPROVED',
+      title: '✅ Milestone approved!',
+      body: `Your milestone "${m.title}" has been approved. Payment is being processed.`,
+      metadata: { milestoneId, contractId: m.contractId, amount: m.amount },
+    });
+
+    return updated;
   }
 
   async createMilestone(
@@ -268,16 +299,26 @@ export class FreelanceService {
   async startMilestone(milestoneId: string, freelancerId: string) {
     const m = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, contract: { freelancerId } },
+      include: { contract: true },
     });
     if (!m) throw new ForbiddenException('Not authorized or milestone not found');
     if (m.status !== 'PENDING')
       throw new ForbiddenException('Only PENDING milestones can be started');
 
-    return this.prisma.milestone.update({
+    const updated = await this.prisma.milestone.update({
       where: { id: milestoneId },
       data: { status: 'IN_PROGRESS' },
       include: { deliverables: true },
     });
+
+    await this.notifications.notify(m.contract.clientId, {
+      type: 'MILESTONE_STARTED',
+      title: 'Milestone started',
+      body: `The freelancer has started working on milestone "${m.title}".`,
+      metadata: { milestoneId, contractId: m.contractId },
+    });
+
+    return updated;
   }
 
   async submitMilestone(
@@ -287,12 +328,13 @@ export class FreelanceService {
   ) {
     const m = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, contract: { freelancerId } },
+      include: { contract: true },
     });
     if (!m) throw new ForbiddenException('Not authorized or milestone not found');
     if (m.status !== 'IN_PROGRESS')
       throw new ForbiddenException('Milestone must be IN_PROGRESS before submitting');
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const deliverable = await tx.deliverable.create({
         data: { milestoneId, fileUrl: dto.fileUrl, notes: dto.notes },
       });
@@ -303,21 +345,40 @@ export class FreelanceService {
       });
       return { milestone: updated, deliverable };
     });
+
+    await this.notifications.notify(m.contract.clientId, {
+      type: 'MILESTONE_SUBMITTED',
+      title: '📦 Milestone ready for review',
+      body: `A deliverable has been submitted for milestone "${m.title}". Please review and approve.`,
+      metadata: { milestoneId, contractId: m.contractId },
+    });
+
+    return result;
   }
 
   async requestRevision(milestoneId: string, clientId: string) {
     const m = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, contract: { clientId } },
+      include: { contract: true },
     });
     if (!m) throw new ForbiddenException('Not authorized or milestone not found');
     if (m.status !== 'SUBMITTED')
       throw new ForbiddenException('Milestone must be SUBMITTED to request revision');
 
-    return this.prisma.milestone.update({
+    const updated = await this.prisma.milestone.update({
       where: { id: milestoneId },
       data: { status: 'REVISION_REQUESTED' },
       include: { deliverables: true },
     });
+
+    await this.notifications.notify(m.contract.freelancerId, {
+      type: 'MILESTONE_REVISION',
+      title: '🔄 Revision requested',
+      body: `The client has requested a revision on milestone "${m.title}". Please update your deliverable.`,
+      metadata: { milestoneId, contractId: m.contractId },
+    });
+
+    return updated;
   }
 
   async createDispute(userId: string, dto: { contractId: string; reason: string; evidenceUrls: string[] }) {
