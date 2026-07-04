@@ -20,6 +20,9 @@ const protectedPaths = [
   '/post-job/*',
   '/freelance/my-bids/*',
   '/freelance/contracts/*',
+  '/freelance/pay/*',
+  '/freelance/contracts/*',
+
 ];
 
 // Admin routes - require admin role

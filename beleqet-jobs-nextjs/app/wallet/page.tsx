@@ -14,7 +14,8 @@ export default function WalletPage() {
   const [withdraw] = useWithdrawMutation();
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
+  const [withdrawMethod, setWithdrawMethod] = useState<'CHAPA' | 'TELEBIRR' | 'CBE_BIRR'>('CHAPA');
+  const [accountRef, setAccountRef] = useState('');
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,18 +27,21 @@ export default function WalletPage() {
       toast.error('Insufficient available balance');
       return;
     }
+    if (!accountRef) {
+      toast.error('Please enter your account reference');
+      return;
+    }
 
     try {
       await withdraw({
         amount: parseFloat(withdrawAmount),
-        bankAccount,
-        bankName: 'Default Bank',
-        accountHolder: `${user?.firstName} ${user?.lastName}`,
+        method: withdrawMethod,
+        accountRef,
       }).unwrap();
       toast.success('Withdrawal request submitted successfully');
       setIsWithdrawing(false);
       setWithdrawAmount('');
-      setBankAccount('');
+      setAccountRef('');
     } catch (error: any) {
       toast.error(error?.data?.message || 'Failed to submit withdrawal request');
     }
@@ -176,18 +180,35 @@ export default function WalletPage() {
                   <p className="text-xs text-gray-500 mt-1">Available: {wallet?.currency} {wallet?.availableBalance.toLocaleString()}</p>
                 </div>
                 <div>
-                  <label htmlFor="bankAccount" className="block text-sm font-medium text-gray-700 mb-1">
-                    Bank Account Number
+                  <label htmlFor="method" className="block text-sm font-medium text-gray-700 mb-1">
+                    Withdrawal Method
+                  </label>
+                  <select
+                    id="method"
+                    value={withdrawMethod}
+                    onChange={(e) => setWithdrawMethod(e.target.value as 'CHAPA' | 'TELEBIRR' | 'CBE_BIRR')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    <option value="CHAPA">Chapa</option>
+                    <option value="TELEBIRR">Telebirr</option>
+                    <option value="CBE_BIRR">CBE Birr</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="accountRef" className="block text-sm font-medium text-gray-700 mb-1">
+                    Account Reference
                   </label>
                   <input
                     type="text"
-                    id="bankAccount"
-                    value={bankAccount}
-                    onChange={(e) => setBankAccount(e.target.value)}
+                    id="accountRef"
+                    value={accountRef}
+                    onChange={(e) => setAccountRef(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    placeholder="Enter bank account number"
+                    placeholder="Enter account number or phone number"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">Bank account number or phone number depending on method</p>
                 </div>
                 <div className="flex space-x-3">
                   <button

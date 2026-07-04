@@ -9,9 +9,8 @@ export enum WalletTransactionType {
 
 export interface WithdrawDto {
   amount: number;
-  bankAccount?: string;
-  bankName?: string;
-  accountHolder?: string;
+  method: 'CHAPA' | 'TELEBIRR' | 'CBE_BIRR';
+  accountRef: string;
 }
 
 export interface WalletTransaction {

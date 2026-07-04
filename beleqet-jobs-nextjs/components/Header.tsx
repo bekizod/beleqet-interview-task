@@ -7,7 +7,7 @@ import { useLogoutMutation } from "@/lib/store/slices/authApiSlice";
 import { useDispatch } from "react-redux";
 import { logout as logoutAction } from "@/lib/store/slices/authSlice";
 import { useRouter } from "next/navigation";
-import { User, LogOut, Briefcase, Bell, Menu, LayoutDashboard, PlusCircle, Loader2 } from "lucide-react";
+import { User, LogOut, Briefcase, Bell, Menu, LayoutDashboard, PlusCircle, Loader2, Wallet } from "lucide-react";
 import { useState } from "react";
 import Cookies from "js-cookie";
 
@@ -195,6 +195,14 @@ export default function Header() {
                           <LayoutDashboard className="h-4 w-4" />
                           My Contracts
                         </Link>
+                        <Link
+                          href="/wallet"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <Wallet className="h-4 w-4" />
+                          Wallet
+                        </Link>
                       </>
                     )}
 
@@ -329,6 +337,13 @@ export default function Header() {
                       onClick={() => setShowMobileMenu(false)}
                     >
                       My Contracts
+                    </Link>
+                    <Link
+                      href="/wallet"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      Wallet
                     </Link>
                   </>
                 )}
