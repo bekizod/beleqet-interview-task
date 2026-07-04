@@ -3,8 +3,15 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useGetFreelanceJobsQuery } from '@/lib/store/slices/freelanceApiSlice';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useGetProfileQuery } from '@/lib/store/slices/usersApiSlice';
+import { Plus, Briefcase, FileText, LayoutDashboard } from 'lucide-react';
 
 export default function FreelancePage() {
+  const { user, isAuthenticated } = useAuth();
+  const { data: profile } = useGetProfileQuery(undefined, { skip: !isAuthenticated });
+  const isEmployer = profile?.role === 'EMPLOYER' || profile?.role === 'ADMIN';
+
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
 
@@ -34,6 +41,38 @@ export default function FreelancePage() {
         <p className="text-muted text-sm mt-2">
           Browse available freelance gigs and submit bids directly from your account.
         </p>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex flex-wrap gap-3 mb-8">
+        {isEmployer && (
+          <Link
+            href="/freelance/create"
+            className="inline-flex items-center gap-2 rounded-lg bg-brandGreen px-4 py-2.5 text-sm font-semibold text-white hover:bg-darkGreen transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Post a Gig
+          </Link>
+        )}
+
+        {isAuthenticated && (
+          <>
+            <Link
+              href="/freelance/contracts"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-pageBg transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              My Contracts
+            </Link>
+            <Link
+              href="/freelance/my-bids"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-pageBg transition-colors"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              My Bids
+            </Link>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_280px] mb-8">
@@ -102,7 +141,7 @@ export default function FreelancePage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted">
                 <span>{job.skills.join(', ')}</span>
-                <span>Client: {job.client.firstName} {job.client.lastName}</span>
+                <span>Client: {job?.client?.firstName} {job?.client?.lastName}</span>
               </div>
             </Link>
           ))

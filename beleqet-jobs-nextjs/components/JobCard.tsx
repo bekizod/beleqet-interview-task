@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Bookmark, Building2 } from "lucide-react";
+import { MapPin, Bookmark, Building2, Star } from "lucide-react";
 import type { Job } from "@/lib/store/slices/jobsApiSlice";
 
 const typeStyles: Record<string, string> = {
@@ -32,7 +32,15 @@ export default function JobCard({ job }: { job: Job }) {
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-pageBg text-muted">
           <Building2 className="h-5 w-5" />
         </span>
-        <Bookmark className="h-4 w-4 text-muted/50 group-hover:text-brandGreen transition-colors" />
+        <div className="flex items-center gap-2">
+          {job.featured && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+              <Star className="h-3 w-3 fill-yellow-700" />
+              Featured
+            </span>
+          )}
+          <Bookmark className="h-4 w-4 text-muted/50 group-hover:text-brandGreen transition-colors" />
+        </div>
       </div>
 
       <h3 className="text-cardH3 mt-3 text-ink leading-snug line-clamp-2">{job.title}</h3>

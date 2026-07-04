@@ -31,19 +31,35 @@ export enum MilestoneStatus {
   REVISION_REQUESTED = 'REVISION_REQUESTED',
 }
 
+export enum EscrowStatus {
+  PENDING = 'PENDING',
+  FUNDED = 'FUNDED',
+  IN_REVIEW = 'IN_REVIEW',
+  RELEASED = 'RELEASED',
+  REFUNDED = 'REFUNDED',
+  DISPUTED = 'DISPUTED',
+}
+
+export interface FreelanceCategory {
+  id: string;
+  slug: string;
+  label: string;
+  icon?: string;
+}
+
 export interface CreateFreelanceJobDto {
   title: string;
   description: string;
-  categoryId: string;
+  categoryId?: string;
   budgetMin: number;
   budgetMax: number;
   currency?: string;
   pricingType?: string;
   deadlineDays: number;
   skills: string[];
-  attachments?: string[];
-  experienceLevel?: string;
   locationPreference?: string;
+  experienceLevel?: string;
+  attachments?: string[];
 }
 
 export interface CreateBidDto {
@@ -153,6 +169,7 @@ export interface Contract {
     description?: string;
     budgetMin: number;
     budgetMax: number;
+    escrowTx?: EscrowTransaction;
   };
   client: {
     id: string;
@@ -175,8 +192,54 @@ export interface Contract {
   };
 }
 
+export interface EscrowTransaction {
+  id: string;
+  freelanceJobId: string;
+  grossAmount: number;
+  platformFee: number;
+  netAmount: number;
+  currency: string;
+  status: EscrowStatus;
+  gatewayRef?: string;
+  gatewayResponse?: any;
+  fundedAt?: string;
+  releasedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EscrowInitiateResponse {
+  escrowId: string;
+  checkoutUrl: string;
+  grossAmount: number;
+  platformFee: number;
+  netAmount: number;
+}
+
+export interface CreateDisputeDto {
+  contractId: string;
+  reason: string;
+  evidenceUrls: string[];
+}
+
+export interface CreateMilestoneDto {
+  title: string;
+  description?: string;
+  amount: number;
+  deadline: string;
+}
+
+export interface SubmitMilestoneDto {
+  fileUrl?: string;
+  notes?: string;
+}
+
 export const freelanceApi = api.injectEndpoints({
   endpoints: (builder) => ({
+    getFreelanceCategories: builder.query<FreelanceCategory[], void>({
+      query: () => '/freelance/categories',
+      providesTags: ['FreelanceCategories'] as any,
+    }),
     getFreelanceJobs: builder.query<{ items: FreelanceJob[]; total: number }, { q?: string; category?: string; page?: number; limit?: number }>({
       query: (params) => ({
         url: '/freelance/jobs',
@@ -215,14 +278,70 @@ export const freelanceApi = api.injectEndpoints({
       query: () => '/freelance/my-bids',
       providesTags: ['Freelance'] as any,
     }),
+    getMyContracts: builder.query<Contract[], void>({
+      query: () => '/freelance/my-contracts',
+      providesTags: ['Freelance'] as any,
+    }),
     getContract: builder.query<Contract, string>({
       query: (id) => `/freelance/contracts/${id}`,
       providesTags: (result) => [{ type: 'Freelance' as any, id: result?.id }],
     }),
-    approveMilestone: builder.mutation<any, string>({
+    approveMilestone: builder.mutation<Milestone, string>({
       query: (id) => ({
         url: `/freelance/milestones/${id}/approve`,
         method: 'PATCH',
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    startMilestone: builder.mutation<Milestone, string>({
+      query: (id) => ({
+        url: `/freelance/milestones/${id}/start`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    submitMilestone: builder.mutation<{ milestone: Milestone; deliverable: Deliverable }, { id: string; dto: SubmitMilestoneDto }>({
+      query: ({ id, dto }) => ({
+        url: `/freelance/milestones/${id}/submit`,
+        method: 'POST',
+        body: dto,
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    requestRevision: builder.mutation<Milestone, string>({
+      query: (id) => ({
+        url: `/freelance/milestones/${id}/revision`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    createMilestone: builder.mutation<Milestone, { contractId: string; dto: CreateMilestoneDto }>({
+      query: ({ contractId, dto }) => ({
+        url: `/freelance/contracts/${contractId}/milestones`,
+        method: 'POST',
+        body: dto,
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    initiateEscrow: builder.mutation<EscrowInitiateResponse, string>({
+      query: (gigId) => ({
+        url: `/escrow/initiate/${gigId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    releaseMilestone: builder.mutation<any, string>({
+      query: (milestoneId) => ({
+        url: `/escrow/milestones/${milestoneId}/release`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
+    createDispute: builder.mutation<any, CreateDisputeDto>({
+      query: (dto) => ({
+        url: `/freelance/disputes`,
+        method: 'POST',
+        body: dto,
       }),
       invalidatesTags: ['Freelance'] as any,
     }),
@@ -232,10 +351,19 @@ export const freelanceApi = api.injectEndpoints({
 export const {
   useGetFreelanceJobsQuery,
   useGetFreelanceJobQuery,
+  useGetFreelanceCategoriesQuery,
   useCreateFreelanceJobMutation,
   useSubmitBidMutation,
   useAcceptBidMutation,
   useGetMyBidsQuery,
+  useGetMyContractsQuery,
   useGetContractQuery,
   useApproveMilestoneMutation,
+  useStartMilestoneMutation,
+  useSubmitMilestoneMutation,
+  useRequestRevisionMutation,
+  useCreateMilestoneMutation,
+  useInitiateEscrowMutation,
+  useReleaseMilestoneMutation,
+  useCreateDisputeMutation,
 } = freelanceApi;

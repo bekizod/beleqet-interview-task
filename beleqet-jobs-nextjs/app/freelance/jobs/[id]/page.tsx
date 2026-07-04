@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useGetFreelanceJobQuery, useSubmitBidMutation, useAcceptBidMutation } from '@/lib/store/slices/freelanceApiSlice';
+import { useGetFreelanceJobQuery, useSubmitBidMutation, useAcceptBidMutation, useInitiateEscrowMutation } from '@/lib/store/slices/freelanceApiSlice';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FreelanceJobPageProps {
@@ -15,6 +15,7 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
   const { data: job, isLoading, isError } = useGetFreelanceJobQuery(id);
   const [submitBid, { isLoading: isSubmitting }] = useSubmitBidMutation();
   const [acceptBid, { isLoading: isAccepting }] = useAcceptBidMutation();
+  const [initiateEscrow, { isLoading: isInitiating }] = useInitiateEscrowMutation();
   const [formData, setFormData] = useState({ amount: '', timelineDays: '', coverLetter: '' });
 
   const isClient = user?.id === job?.clientId;
@@ -50,6 +51,20 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
       toast.success('Bid accepted and contract created.');
     } catch (error: any) {
       toast.error(error?.data?.message || 'Unable to accept bid.');
+    }
+  };
+
+  const handleInitiateEscrow = async () => {
+    try {
+      const result = await initiateEscrow(id).unwrap();
+      if (result.checkoutUrl) {
+        window.open(result.checkoutUrl, '_blank');
+        toast.success('Escrow initiated. Please complete payment.');
+      } else {
+        toast.success('Escrow initiated successfully.');
+      }
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Unable to initiate escrow.');
     }
   };
 
@@ -140,9 +155,50 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
               </div>
             )}
           </div>
+
+          {/* Escrow Status */}
+          {job.escrowTx && (
+            <div className="rounded-2xl border border-border bg-white p-6">
+              <h2 className="text-base font-semibold text-ink mb-4">Escrow Status</h2>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Status</span>
+                  <span className="font-semibold text-ink">{job.escrowTx.status.replace('_', ' ')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Gross Amount</span>
+                  <span className="font-semibold text-ink">{job.escrowTx.grossAmount.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Platform Fee (10%)</span>
+                  <span className="font-semibold text-ink">{job.escrowTx.platformFee.toLocaleString()} ETB</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Net Amount</span>
+                  <span className="font-semibold text-ink">{job.escrowTx.netAmount.toLocaleString()} ETB</span>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <aside className="space-y-6">
+          {isClient && !job.escrowTx && job.status === 'OPEN' && (
+            <div className="rounded-2xl border border-border bg-white p-6">
+              <h2 className="text-base font-semibold text-ink mb-4">Fund Escrow</h2>
+              <p className="text-sm text-muted mb-4">
+                Fund the escrow to secure this gig. Funds will be held until milestones are approved.
+              </p>
+              <button
+                onClick={handleInitiateEscrow}
+                disabled={isInitiating}
+                className="w-full rounded-lg bg-brandGreen px-4 py-3 text-sm font-semibold text-white hover:bg-darkGreen disabled:opacity-60"
+              >
+                {isInitiating ? 'Initiating...' : 'Fund Escrow'}
+              </button>
+            </div>
+          )}
+
           {isAuthenticated && !isClient && !hasSubmittedBid && (
             <div className="rounded-2xl border border-border bg-white p-6">
               <h2 className="text-base font-semibold text-ink mb-4">Submit a bid</h2>

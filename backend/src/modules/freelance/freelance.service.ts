@@ -1,28 +1,90 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { IsNumber, IsInt, IsString, IsOptional, MinLength, Min, IsDateString } from 'class-validator';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateFreelanceJobDto } from './dto/create-freelance-job.dto';
 
-export class CreateFreelanceJobDto {
-  title: string; description: string; categoryId: string;
-  budgetMin: number; budgetMax: number; pricingType?: string;
-  deadlineDays: number; skills: string[];
-
-  // New Freelance fields
-  locationPreference?: string;
-  experienceLevel?: string;
-  attachments?: string[];
-}
 export class CreateBidDto {
-  amount: number; timelineDays: number; coverLetter: string;
+  @IsNumber()
+  @Min(1)
+  amount: number;
+
+  @IsInt()
+  @Min(1)
+  timelineDays: number;
+
+  @IsString()
+  @MinLength(10)
+  coverLetter: string;
+}
+
+export class CreateMilestoneDto {
+  @IsString()
+  @MinLength(3)
+  title: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsInt()
+  @Min(1)
+  amount: number;
+
+  @IsDateString()
+  deadline: string;
+}
+
+export class SubmitMilestoneDto {
+  @IsString()
+  @IsOptional()
+  fileUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }
 
 @Injectable()
 export class FreelanceService {
   constructor(private readonly prisma: PrismaService) { }
 
+  async getCategories() {
+    return this.prisma.freelanceCategory.findMany({
+      orderBy: { label: 'asc' }
+    });
+  }
+
   async createJob(clientId: string, dto: CreateFreelanceJobDto) {
+    // Handle categoryId - if not provided, create or use a default category
+    let categoryId = dto.categoryId;
+    if (!categoryId) {
+      // Try to find or create a default category
+      const defaultCategory = await this.prisma.freelanceCategory.findFirst({
+        where: { slug: 'general' }
+      });
+
+      if (defaultCategory) {
+        categoryId = defaultCategory.id;
+      } else {
+        // Create a default general category
+        const newCategory = await this.prisma.freelanceCategory.create({
+          data: {
+            slug: 'general',
+            label: 'General',
+          }
+        });
+        categoryId = newCategory.id;
+      }
+    }
+
     return this.prisma.freelanceJob.create({
-      data: { ...dto, clientId, status: 'OPEN' },
+      data: {
+        ...dto,
+        categoryId,
+        clientId,
+        status: 'OPEN'
+      },
       include: { category: true, client: { select: { id: true, firstName: true, lastName: true } } },
     });
   }
@@ -130,16 +192,35 @@ export class FreelanceService {
     });
   }
 
+  async getMyContracts(userId: string) {
+    return this.prisma.contract.findMany({
+      where: {
+        OR: [{ clientId: userId }, { freelancerId: userId }],
+      },
+      include: {
+        freelanceJob: {
+          include: { escrowTx: true },
+        },
+        client: { select: { id: true, firstName: true, lastName: true } },
+        freelancer: { select: { id: true, firstName: true, lastName: true } },
+        milestones: true,
+        dispute: true,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
   async getContract(id: string) {
     const c = await this.prisma.contract.findUnique({
       where: { id },
       include: {
         milestones: { include: { deliverables: true } },
-        freelanceJob: true,
+        freelanceJob: { include: { escrowTx: true } },
         client: { select: { id: true, firstName: true, lastName: true } },
         freelancer: { select: { id: true, firstName: true, lastName: true } },
+        dispute: true,
       },
-    });
+    }) as any;
     if (!c) throw new NotFoundException('Contract not found');
     return c;
   }
@@ -147,11 +228,135 @@ export class FreelanceService {
   async approveMilestone(milestoneId: string, clientId: string) {
     const m = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, contract: { clientId } },
+      include: { contract: true },
     });
     if (!m) throw new ForbiddenException('Not authorized or milestone not found');
+    if (m.status !== 'SUBMITTED')
+      throw new ForbiddenException('Milestone must be SUBMITTED before it can be approved');
+
     return this.prisma.milestone.update({
       where: { id: milestoneId },
       data: { status: 'APPROVED', approvedAt: new Date() },
     });
   }
+
+  async createMilestone(
+    contractId: string,
+    clientId: string,
+    dto: { title: string; description?: string; amount: number; deadline: string },
+  ) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('Contract not found');
+    if (contract.clientId !== clientId)
+      throw new ForbiddenException('Only the client can add milestones');
+    if (contract.status !== 'ACTIVE')
+      throw new ForbiddenException('Cannot add milestones to a non-active contract');
+
+    return this.prisma.milestone.create({
+      data: {
+        contractId,
+        title: dto.title,
+        description: dto.description,
+        amount: dto.amount,
+        deadline: new Date(dto.deadline),
+        status: 'PENDING',
+      },
+      include: { deliverables: true },
+    });
+  }
+
+  async startMilestone(milestoneId: string, freelancerId: string) {
+    const m = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, contract: { freelancerId } },
+    });
+    if (!m) throw new ForbiddenException('Not authorized or milestone not found');
+    if (m.status !== 'PENDING')
+      throw new ForbiddenException('Only PENDING milestones can be started');
+
+    return this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: { status: 'IN_PROGRESS' },
+      include: { deliverables: true },
+    });
+  }
+
+  async submitMilestone(
+    milestoneId: string,
+    freelancerId: string,
+    dto: { fileUrl?: string; notes?: string },
+  ) {
+    const m = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, contract: { freelancerId } },
+    });
+    if (!m) throw new ForbiddenException('Not authorized or milestone not found');
+    if (m.status !== 'IN_PROGRESS')
+      throw new ForbiddenException('Milestone must be IN_PROGRESS before submitting');
+
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const deliverable = await tx.deliverable.create({
+        data: { milestoneId, fileUrl: dto.fileUrl, notes: dto.notes },
+      });
+      const updated = await tx.milestone.update({
+        where: { id: milestoneId },
+        data: { status: 'SUBMITTED' },
+        include: { deliverables: true },
+      });
+      return { milestone: updated, deliverable };
+    });
+  }
+
+  async requestRevision(milestoneId: string, clientId: string) {
+    const m = await this.prisma.milestone.findFirst({
+      where: { id: milestoneId, contract: { clientId } },
+    });
+    if (!m) throw new ForbiddenException('Not authorized or milestone not found');
+    if (m.status !== 'SUBMITTED')
+      throw new ForbiddenException('Milestone must be SUBMITTED to request revision');
+
+    return this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: { status: 'REVISION_REQUESTED' },
+      include: { deliverables: true },
+    });
+  }
+
+  async createDispute(userId: string, dto: { contractId: string; reason: string; evidenceUrls: string[] }) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: dto.contractId },
+    });
+    if (!contract) throw new NotFoundException('Contract not found');
+
+    if (contract.clientId !== userId && contract.freelancerId !== userId) {
+      throw new ForbiddenException('You are not a party to this contract');
+    }
+
+    // Check if dispute already exists
+    const existingDispute = await this.prisma.dispute.findUnique({
+      where: { contractId: dto.contractId },
+    });
+    if (existingDispute) {
+      throw new ConflictException('A dispute already exists for this contract');
+    }
+
+    const dispute = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const d = await tx.dispute.create({
+        data: {
+          contractId: dto.contractId,
+          raisedById: userId,
+          reason: dto.reason,
+          evidenceUrls: dto.evidenceUrls,
+        },
+      });
+
+      await tx.contract.update({
+        where: { id: dto.contractId },
+        data: { status: 'DISPUTED' },
+      });
+
+      return d;
+    });
+
+    return dispute;
+  }
 }
+

@@ -12,14 +12,14 @@ const publicPaths = [
 
 // Protected routes - require authentication
 const protectedPaths = [
-  '/profile',
-  '/applications',
-  '/my-jobs',
-  '/notifications',
-  '/wallet',
-  '/post-job',
-  '/freelance/my-bids',
-  '/freelance/contracts',
+  '/profile/*',
+  '/applications/*',
+  '/my-jobs/*',
+  '/notifications/*',
+  '/wallet/*',
+  '/post-job/*',
+  '/freelance/my-bids/*',
+  '/freelance/contracts/*',
 ];
 
 // Admin routes - require admin role

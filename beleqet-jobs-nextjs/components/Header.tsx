@@ -178,14 +178,24 @@ export default function Header() {
 
                     {/* Job seeker links */}
                     {!isEmployer && !isAdmin && (
-                      <Link
-                        href="/applications"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Briefcase className="h-4 w-4" />
-                        My Applications
-                      </Link>
+                      <>
+                        <Link
+                          href="/applications"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <Briefcase className="h-4 w-4" />
+                          My Applications
+                        </Link>
+                        <Link
+                          href="/freelance/contracts"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <LayoutDashboard className="h-4 w-4" />
+                          My Contracts
+                        </Link>
+                      </>
                     )}
 
                     {/* Employer links */}
@@ -198,6 +208,22 @@ export default function Header() {
                         >
                           <LayoutDashboard className="h-4 w-4" />
                           My Jobs
+                        </Link>
+                        <Link
+                          href="/freelance/contracts"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <Briefcase className="h-4 w-4" />
+                          My Contracts
+                        </Link>
+                        <Link
+                          href="/freelance/create"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                          Post Freelance Gig
                         </Link>
                         <Link
                           href="/post-job"
@@ -289,23 +315,48 @@ export default function Header() {
                 </Link>
 
                 {!isEmployer && !isAdmin && (
-                  <Link
-                    href="/applications"
-                    className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
-                    onClick={() => setShowMobileMenu(false)}
-                  >
-                    My Applications
-                  </Link>
+                  <>
+                    <Link
+                      href="/applications"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      My Applications
+                    </Link>
+                    <Link
+                      href="/freelance/contracts"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      My Contracts
+                    </Link>
+                  </>
                 )}
 
                 {isEmployer && (
-                  <Link
-                    href="/my-jobs"
-                    className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
-                    onClick={() => setShowMobileMenu(false)}
-                  >
-                    My Jobs
-                  </Link>
+                  <>
+                    <Link
+                      href="/my-jobs"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      My Jobs
+                    </Link>
+                    <Link
+                      href="/freelance/contracts"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      My Contracts
+                    </Link>
+                    <Link
+                      href="/freelance/create"
+                      className="text-sm font-medium text-ink hover:text-brandGreen transition-colors"
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      Post Freelance Gig
+                    </Link>
+                  </>
                 )}
 
 

@@ -1,61 +1,29 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { jobs } from "@/lib/mockData";
 import JobCard from "./JobCard";
-import type { Job } from "@/lib/store/slices/jobsApiSlice";
-import { JobType, JobStatus } from "@/lib/store/slices/jobsApiSlice";
+import { useGetJobQuery } from "@/lib/store/slices/jobsApiSlice";
 
-// Map mock job type strings to the JobType enum
-const typeMap: Record<string, JobType> = {
-  "Full Time": JobType.FULL_TIME,
-  "Part Time": JobType.PART_TIME,
-  "Remote": JobType.REMOTE,
-  "Hybrid": JobType.HYBRID,
-  "Contract": JobType.CONTRACT,
-  "On-site": JobType.FULL_TIME,
-};
-
-// Convert "2h ago" / "1d ago" style strings into milliseconds for createdAt
-function parseMockAge(postedAgo: string): number {
-  const match = postedAgo.match(/^(\d+)(h|d)$/);
-  if (!match) return 0;
-  const n = parseInt(match[1], 10);
-  return match[2] === "h" ? n * 3_600_000 : n * 86_400_000;
-}
+// Local storage key for saved jobs
+const SAVED_JOBS_KEY = "savedJobs";
 
 export default function FeaturedJobs() {
-  const featured: Job[] = jobs
-    .filter((j) => j.featured)
-    .map((j) => ({
-      id: j.id,
-      title: j.title,
-      description: j.description ?? "",
-      location: j.location,
-      type: typeMap[j.type] ?? JobType.FULL_TIME,
-      categoryId: j.category,
-      currency: "ETB",
-      status: JobStatus.PUBLISHED,
-      featured: j.featured ?? false,
-      companyId: j.company,
-      filled: false,
-      urgent: false,
-      createdAt: new Date(Date.now() - parseMockAge(j.postedAgo)).toISOString(),
-      updatedAt: new Date().toISOString(),
-      tags: j.tags,
-      company: {
-        id: j.company,
-        name: j.company,
-        verified: false,
-        userId: "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      category: {
-        id: j.category,
-        slug: j.category,
-        label: j.category,
-      },
-      _count: { applications: 0 },
-    }));
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Load saved job IDs from localStorage
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem(SAVED_JOBS_KEY);
+    if (saved) {
+      try {
+        setSavedJobIds(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved jobs from localStorage", e);
+        setSavedJobIds([]);
+      }
+    }
+  }, []);
 
   return (
     <section className="bg-white border-y border-border">
@@ -71,11 +39,32 @@ export default function FeaturedJobs() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {featured.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
+          {savedJobIds.length > 0 ? (
+            savedJobIds.map((jobId) => <SavedJobCard key={jobId} jobId={jobId} />)
+          ) : (
+            <p className="text-muted text-sm col-span-full">No saved jobs yet. Save jobs to see them here!</p>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+function SavedJobCard({ jobId }: { jobId: string }) {
+  const { data: job, isLoading, isError } = useGetJobQuery(jobId);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-border bg-pageBg p-4 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+      </div>
+    );
+  }
+
+  if (isError || !job) {
+    return null; // Skip jobs that fail to load
+  }
+
+  return <JobCard job={job} />;
 }
