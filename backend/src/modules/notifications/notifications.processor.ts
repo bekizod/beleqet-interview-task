@@ -56,23 +56,40 @@ export class NotificationsProcessor {
   @Process(NOTIFICATION_JOBS.SEND_TELEGRAM)
   async sendTelegram(job: Job<TelegramPayload>) {
     const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
-    if (!botToken) return;
+    if (!botToken) {
+      this.logger.warn('TELEGRAM_BOT_TOKEN not set — skipping');
+      return;
+    }
+
+    const { telegramId, message } = job.data;
+
     try {
-      await fetch(
+      const res = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            chat_id: job.data.telegramId,
-            text: job.data.message,
-            parse_mode: 'Markdown',
+            chat_id: telegramId,
+            text: message,
+            // Use HTML instead of Markdown — far fewer special-char edge cases
+            parse_mode: 'HTML',
           }),
         },
       );
-      this.logger.debug(`Telegram → ${job.data.telegramId}`);
+
+      const data = await res.json() as { ok: boolean; error_code?: number; description?: string };
+
+      if (!data.ok) {
+        this.logger.error(
+          `Telegram sendMessage failed for chat_id=${telegramId}: ` +
+          `[${data.error_code}] ${data.description}`,
+        );
+      } else {
+        this.logger.log(`Telegram ✓ → ${telegramId}`);
+      }
     } catch (e) {
-      this.logger.warn(`Telegram failed: ${(e as Error).message}`);
+      this.logger.error(`Telegram fetch error for chat_id=${telegramId}: ${(e as Error).message}`);
     }
   }
 

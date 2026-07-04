@@ -154,7 +154,7 @@ export class FreelanceService {
       title: 'New bid on your gig',
       body: `Someone submitted a bid of ${dto.amount.toLocaleString()} ETB on "${gig.title}".`,
       metadata: { bidId: bid.id, gigId },
-    }).catch(() => void 0);
+    });
 
     return bid;
   }
@@ -202,7 +202,7 @@ export class FreelanceService {
       title: '🎉 Your bid was accepted!',
       body: `Your bid of ${bid.amount.toLocaleString()} ETB on "${gig?.title}" was accepted. A contract has been created.`,
       metadata: { contractId: contract.id, gigId: bid.freelanceJobId },
-    }).catch(() => void 0);
+    });
 
     return contract;
   }
@@ -267,7 +267,7 @@ export class FreelanceService {
       title: '✅ Milestone approved!',
       body: `Your milestone "${m.title}" has been approved. Payment is being processed.`,
       metadata: { milestoneId, contractId: m.contractId, amount: m.amount },
-    }).catch(() => void 0);
+    });
 
     return updated;
   }
@@ -317,7 +317,7 @@ export class FreelanceService {
       title: 'Milestone started',
       body: `The freelancer has started working on milestone "${m.title}".`,
       metadata: { milestoneId, contractId: m.contractId },
-    }).catch(() => void 0);
+    });
 
     return updated;
   }
@@ -352,7 +352,7 @@ export class FreelanceService {
       title: '📦 Milestone ready for review',
       body: `A deliverable has been submitted for milestone "${m.title}". Please review and approve.`,
       metadata: { milestoneId, contractId: m.contractId },
-    }).catch(() => void 0);
+    });
 
     return result;
   }
@@ -377,7 +377,7 @@ export class FreelanceService {
       title: '🔄 Revision requested',
       body: `The client has requested a revision on milestone "${m.title}". Please update your deliverable.`,
       metadata: { milestoneId, contractId: m.contractId },
-    }).catch(() => void 0);
+    });
 
     return updated;
   }
