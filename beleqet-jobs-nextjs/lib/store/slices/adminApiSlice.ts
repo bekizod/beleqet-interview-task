@@ -14,6 +14,18 @@ export interface CheckAdminsResponse {
   count: number;
 }
 
+export interface AdminJob {
+  id: string;
+  title: string;
+  location: string;
+  status: string;
+  featured: boolean;
+  createdAt: string;
+  company: { name: string };
+  category: { label: string };
+  _count: { applications: number };
+}
+
 export interface Dispute {
   id: string;
   contractId: string;
@@ -80,6 +92,18 @@ export const adminApi = api.injectEndpoints({
       }),
       invalidatesTags: ['Admin'],
     }),
+    getAdminJobs: builder.query<AdminJob[], void>({
+      query: () => '/admin/jobs',
+      providesTags: ['Admin', 'Job'],
+    }),
+    featureJob: builder.mutation<{ id: string; title: string; featured: boolean; message: string }, { id: string; featured: boolean }>({
+      query: ({ id, featured }) => ({
+        url: `/admin/jobs/${id}/feature`,
+        method: 'PATCH',
+        body: { featured },
+      }),
+      invalidatesTags: ['Admin', 'Job'],
+    }),
   }),
 });
 
@@ -89,4 +113,6 @@ export const {
   useSuspendUserMutation,
   useGetDisputesQuery,
   useResolveDisputeMutation,
+  useGetAdminJobsQuery,
+  useFeatureJobMutation,
 } = adminApi;

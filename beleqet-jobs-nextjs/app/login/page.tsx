@@ -16,9 +16,16 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(formData).unwrap();
+     const result = await login(formData).unwrap();
+    console.log("resykt6", JSON.stringify(result, null , 2))
       toast.success('Login successful!');
-      window.location.href = '/';
+      if(result.user.role === "ADMIN"){
+        window.location.href = '/admin/dashboard';
+      }
+      else {
+          window.location.href = '/';
+      }
+    
     } catch (error: any) {
       toast.error(error?.data?.message || 'Login failed. Please try again.');
     }

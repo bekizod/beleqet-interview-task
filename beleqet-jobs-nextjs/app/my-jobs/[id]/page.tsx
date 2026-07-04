@@ -110,12 +110,12 @@ export default function MyJobDetailPage() {
               <Users className="h-4 w-4" />
               All Applications ({job._count?.applications ?? 0})
             </Link>
-            <Link
+            {/* <Link
               href={`/post-job?edit=${jobId}`}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
             >
               <Edit className="h-4 w-4" /> Edit
-            </Link>
+            </Link> */}
           </div>
         </div>
 

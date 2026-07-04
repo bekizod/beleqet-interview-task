@@ -18,6 +18,12 @@ export class JobsController {
     return this.svc.findAll(query);
   }
 
+  @Get('featured')
+  @ApiOperation({ summary: 'Get featured job listings (public)' })
+  getFeatured(@Query('limit') limit?: string) {
+    return this.svc.getFeatured(limit ? parseInt(limit, 10) : 10);
+  }
+
   @Get('my')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('EMPLOYER', 'ADMIN')

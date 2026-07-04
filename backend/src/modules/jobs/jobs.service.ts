@@ -26,6 +26,15 @@ export class JobsService {
     });
   }
 
+  async getFeatured(limit = 10) {
+    return this.prisma.job.findMany({
+      where: { status: 'PUBLISHED', featured: true },
+      include: { company: true, category: true, _count: { select: { applications: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async findAll(query: QueryJobsDto) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 20;

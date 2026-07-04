@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLoginMutation } from '@/lib/store/slices/authApiSlice';
 import toast from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,6 +22,12 @@ export default function AdminLoginPage() {
       // Check if user is admin
       if (result.user.role !== 'ADMIN') {
         toast.error('Access denied. Admin access only.');
+        Cookies.remove("accessToken")
+        Cookies.remove("refreshToken")
+        setTimeout(() => {
+        window.location.reload()
+        }, 2000)
+       
         return;
       }
       

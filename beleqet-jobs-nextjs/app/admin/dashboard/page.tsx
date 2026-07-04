@@ -2,25 +2,32 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useGetUsersQuery, useSuspendUserMutation, useGetDisputesQuery, useResolveDisputeMutation } from '@/lib/store/slices/adminApiSlice';
+import {
+  useGetUsersQuery, useSuspendUserMutation,
+  useGetDisputesQuery, useResolveDisputeMutation,
+  useGetAdminJobsQuery, useFeatureJobMutation,
+} from '@/lib/store/slices/adminApiSlice';
 import { useLogoutMutation } from '@/lib/store/slices/authApiSlice';
+import { Star, Building2, MapPin, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { data: users, isLoading: loadingUsers, refetch: refetchUsers } = useGetUsersQuery();
   const { data: disputes, isLoading: loadingDisputes, refetch: refetchDisputes } = useGetDisputesQuery();
+  const { data: jobs, isLoading: loadingJobs } = useGetAdminJobsQuery();
   const [suspendUser] = useSuspendUserMutation();
   const [resolveDispute] = useResolveDisputeMutation();
+  const [featureJob] = useFeatureJobMutation();
   const [logout] = useLogoutMutation();
-  
-  const [activeTab, setActiveTab] = useState<'users' | 'disputes'>('users');
+
+  const [activeTab, setActiveTab] = useState<'users' | 'disputes' | 'jobs'>('users');
   const [resolutionText, setResolutionText] = useState('');
   const [selectedDisputeId, setSelectedDisputeId] = useState<string | null>(null);
+  const [jobSearch, setJobSearch] = useState('');
 
   const handleSuspendUser = async (userId: string) => {
     if (!confirm('Are you sure you want to suspend this user?')) return;
-    
     try {
       await suspendUser(userId).unwrap();
       toast.success('User suspended successfully');
@@ -35,7 +42,6 @@ export default function AdminDashboardPage() {
       toast.error('Please provide a resolution');
       return;
     }
-    
     try {
       await resolveDispute({ id: selectedDisputeId, dto: { resolution: resolutionText } }).unwrap();
       toast.success('Dispute resolved successfully');
@@ -47,14 +53,35 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleToggleFeature = async (id: string, currentFeatured: boolean) => {
+    try {
+      const result = await featureJob({ id, featured: !currentFeatured }).unwrap();
+      toast.success(result.message);
+    } catch (err: any) {
+      toast.error(err?.data?.message || 'Failed to update featured status.');
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await logout().unwrap();
       router.push('/admin/login');
-    } catch (error) {
+    } catch {
       toast.error('Logout failed');
     }
   };
+
+  const filteredJobs = (jobs ?? []).filter(j =>
+    !jobSearch ||
+    j.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+    j.company.name.toLowerCase().includes(jobSearch.toLowerCase()),
+  );
+
+  const tabs: { key: 'users' | 'disputes' | 'jobs'; label: string }[] = [
+    { key: 'users', label: 'Users' },
+    { key: 'disputes', label: 'Disputes' },
+    { key: 'jobs', label: 'Featured Jobs' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -66,26 +93,19 @@ export default function AdminDashboardPage() {
                 <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`${
-                    activeTab === 'users'
-                      ? 'border-green-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
-                >
-                  Users
-                </button>
-                <button
-                  onClick={() => setActiveTab('disputes')}
-                  className={`${
-                    activeTab === 'disputes'
-                      ? 'border-green-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
-                >
-                  Disputes
-                </button>
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`${
+                      activeTab === tab.key
+                        ? 'border-green-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="flex items-center">
@@ -224,6 +244,96 @@ export default function AdminDashboardPage() {
                     No disputes found
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+        {activeTab === 'jobs' && (
+          <div className="px-4 py-6 sm:px-0">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Featured Jobs</h2>
+              <span className="text-sm text-gray-500">
+                {filteredJobs.filter(j => j.featured).length} featured / {filteredJobs.length} total
+              </span>
+            </div>
+
+            {/* Search */}
+            <div className="mb-4">
+              <input
+                value={jobSearch}
+                onChange={e => setJobSearch(e.target.value)}
+                placeholder="Search by title or company..."
+                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+
+            {loadingJobs ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto" />
+                <p className="mt-4 text-gray-600">Loading jobs...</p>
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 bg-white rounded-md border border-gray-200">
+                No jobs found.
+              </div>
+            ) : (
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Company</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Applications</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredJobs.map(job => (
+                      <tr key={job.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-gray-900 line-clamp-1">{job.title}</p>
+                          <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 sm:hidden">
+                            <Building2 className="h-3 w-3" />{job.company.name}
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
+                            <MapPin className="h-3 w-3" />{job.category.label}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 hidden sm:table-cell">
+                          <span className="text-sm text-gray-900">{job.company.name}</span>
+                        </td>
+                        <td className="px-6 py-4 hidden md:table-cell">
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <Users className="h-3.5 w-3.5" />{job._count.applications}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            job.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' :
+                            job.status === 'DRAFT'     ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-500'
+                          }`}>
+                            {job.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => handleToggleFeature(job.id, job.featured)}
+                            title={job.featured ? 'Remove from featured' : 'Mark as featured'}
+                            className="inline-flex items-center justify-center rounded-lg p-1.5 hover:bg-yellow-50 transition-colors"
+                          >
+                            <Star className={`h-5 w-5 transition-colors ${
+                              job.featured
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-gray-300 hover:text-yellow-300'
+                            }`} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

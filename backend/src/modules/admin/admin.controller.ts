@@ -1,6 +1,6 @@
 import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MinLength, IsBoolean } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,6 +10,11 @@ class ResolveDisputeDto {
   @IsString()
   @MinLength(10, { message: 'Resolution must be at least 10 characters' })
   resolution: string;
+}
+
+class FeatureJobDto {
+  @IsBoolean()
+  featured: boolean;
 }
 
 @ApiTags('admin')
@@ -35,6 +40,39 @@ export class AdminController {
     return this.prisma.user.findMany({
       select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true },
     });
+  }
+
+  // ── Jobs ────────────────────────────────────────────────────────────────
+
+  @Get('jobs')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'List all jobs with featured status' })
+  async getJobs() {
+    return this.prisma.job.findMany({
+      select: {
+        id: true, title: true, status: true, featured: true, createdAt: true,
+        company: { select: { name: true } },
+        category: { select: { label: true } },
+        _count: { select: { applications: true } },
+      },
+      orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  @Patch('jobs/:id/feature')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Feature or un-feature a job listing' })
+  async featureJob(@Param('id') id: string, @Body() dto: FeatureJobDto) {
+    const job = await this.prisma.job.update({
+      where: { id },
+      data: { featured: dto.featured },
+      select: { id: true, title: true, featured: true },
+    });
+    return { ...job, message: job.featured ? 'Job is now featured.' : 'Job removed from featured.' };
   }
 
   @Patch('users/:id/suspend')

@@ -135,6 +135,10 @@ export const jobsApi = api.injectEndpoints({
       }),
       providesTags: ['Job'],
     }),
+    getFeaturedJobs: builder.query<Job[], number | void>({
+      query: (limit = 10) => ({ url: '/jobs/featured', params: { limit } }),
+      providesTags: ['Job'],
+    }),
     getJob: builder.query<Job, string>({
       query: (id) => `/jobs/${id}`,
       providesTags: (result) => [{ type: 'Job', id: result?.id }],
@@ -170,15 +174,25 @@ export const jobsApi = api.injectEndpoints({
       }),
       invalidatesTags: ['Job'],
     }),
+    adminFeatureJob: builder.mutation<{ id: string; title: string; featured: boolean; message: string }, { id: string; featured: boolean }>({
+      query: ({ id, featured }) => ({
+        url: `/admin/jobs/${id}/feature`,
+        method: 'PATCH',
+        body: { featured },
+      }),
+      invalidatesTags: ['Job'],
+    }),
   }),
 });
 
 export const {
   useGetJobsQuery,
+  useGetFeaturedJobsQuery,
   useGetJobQuery,
   useGetMyJobsQuery,
   useGetCategoriesQuery,
   useCreateJobMutation,
   useUpdateJobMutation,
   useDeleteJobMutation,
+  useAdminFeatureJobMutation,
 } = jobsApi;

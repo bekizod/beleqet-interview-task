@@ -1,29 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import JobCard from "./JobCard";
-import { useGetJobQuery } from "@/lib/store/slices/jobsApiSlice";
-
-// Local storage key for saved jobs
-const SAVED_JOBS_KEY = "savedJobs";
+import { useGetFeaturedJobsQuery } from "@/lib/store/slices/jobsApiSlice";
 
 export default function FeaturedJobs() {
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Load saved job IDs from localStorage
-    if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem(SAVED_JOBS_KEY);
-    if (saved) {
-      try {
-        setSavedJobIds(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved jobs from localStorage", e);
-        setSavedJobIds([]);
-      }
-    }
-  }, []);
+  const { data: jobs = [], isLoading, isError } = useGetFeaturedJobsQuery(10);
 
   return (
     <section className="bg-white border-y border-border">
@@ -38,33 +20,38 @@ export default function FeaturedJobs() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {savedJobIds.length > 0 ? (
-            savedJobIds.map((jobId) => <SavedJobCard key={jobId} jobId={jobId} />)
-          ) : (
-            <p className="text-muted text-sm col-span-full">No saved jobs yet. Save jobs to see them here!</p>
-          )}
-        </div>
+        {isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-white p-5 animate-pulse">
+                <div className="flex justify-between mb-3">
+                  <div className="h-10 w-10 rounded-lg bg-gray-200" />
+                  <div className="h-4 w-4 rounded bg-gray-200" />
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isError && (
+          <p className="text-sm text-muted">Unable to load featured jobs.</p>
+        )}
+
+        {!isLoading && !isError && jobs.length === 0 && (
+          <p className="text-sm text-muted">No featured jobs at the moment. Check back soon.</p>
+        )}
+
+        {!isLoading && !isError && jobs.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {jobs.map((job) => (
+              <JobCard key={job.id} job={job} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
-}
-
-function SavedJobCard({ jobId }: { jobId: string }) {
-  const { data: job, isLoading, isError } = useGetJobQuery(jobId);
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl border border-border bg-pageBg p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-      </div>
-    );
-  }
-
-  if (isError || !job) {
-    return null; // Skip jobs that fail to load
-  }
-
-  return <JobCard job={job} />;
 }

@@ -39,7 +39,13 @@ export default function JobCard({ job }: { job: Job }) {
               Featured
             </span>
           )}
-          <Bookmark className="h-4 w-4 text-muted/50 group-hover:text-brandGreen transition-colors" />
+          <Bookmark
+            className={`h-4 w-4 transition-colors ${
+              job.featured
+                ? "fill-brandGreen text-brandGreen"
+                : "text-muted/50 group-hover:text-brandGreen"
+            }`}
+          />
         </div>
       </div>
 
