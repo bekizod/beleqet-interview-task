@@ -146,16 +146,17 @@ export class FreelanceService {
     });
     if (existing) throw new ConflictException('You have already submitted a bid');
 
-    return this.prisma.bid.create({ data: { ...dto, freelanceJobId: gigId, freelancerId } }).then(async (bid) => {
-      // Notify the client that a new bid arrived
-      await this.notifications.notify(gig.clientId, {
-        type: 'NEW_BID',
-        title: 'New bid on your gig',
-        body: `Someone submitted a bid of ${dto.amount.toLocaleString()} ETB on "${gig.title}".`,
-        metadata: { bidId: bid.id, gigId },
-      });
-      return bid;
-    });
+    const bid = await this.prisma.bid.create({ data: { ...dto, freelanceJobId: gigId, freelancerId } });
+
+    // Fire-and-forget — don't block the response
+    this.notifications.notify(gig.clientId, {
+      type: 'NEW_BID',
+      title: 'New bid on your gig',
+      body: `Someone submitted a bid of ${dto.amount.toLocaleString()} ETB on "${gig.title}".`,
+      metadata: { bidId: bid.id, gigId },
+    }).catch(() => void 0);
+
+    return bid;
   }
 
   async acceptBid(bidId: string, clientId: string) {
@@ -194,14 +195,14 @@ export class FreelanceService {
       return c;
     });
 
-    // Notify the winning freelancer
+    // Notify the winning freelancer — fire-and-forget
     const gig = await this.prisma.freelanceJob.findUnique({ where: { id: bid.freelanceJobId } });
-    await this.notifications.notify(bid.freelancerId, {
+    this.notifications.notify(bid.freelancerId, {
       type: 'BID_ACCEPTED',
       title: '🎉 Your bid was accepted!',
       body: `Your bid of ${bid.amount.toLocaleString()} ETB on "${gig?.title}" was accepted. A contract has been created.`,
       metadata: { contractId: contract.id, gigId: bid.freelanceJobId },
-    });
+    }).catch(() => void 0);
 
     return contract;
   }
@@ -261,12 +262,12 @@ export class FreelanceService {
       data: { status: 'APPROVED', approvedAt: new Date() },
     });
 
-    await this.notifications.notify(m.contract.freelancerId, {
+    this.notifications.notify(m.contract.freelancerId, {
       type: 'MILESTONE_APPROVED',
       title: '✅ Milestone approved!',
       body: `Your milestone "${m.title}" has been approved. Payment is being processed.`,
       metadata: { milestoneId, contractId: m.contractId, amount: m.amount },
-    });
+    }).catch(() => void 0);
 
     return updated;
   }
@@ -311,12 +312,12 @@ export class FreelanceService {
       include: { deliverables: true },
     });
 
-    await this.notifications.notify(m.contract.clientId, {
+    this.notifications.notify(m.contract.clientId, {
       type: 'MILESTONE_STARTED',
       title: 'Milestone started',
       body: `The freelancer has started working on milestone "${m.title}".`,
       metadata: { milestoneId, contractId: m.contractId },
-    });
+    }).catch(() => void 0);
 
     return updated;
   }
@@ -346,12 +347,12 @@ export class FreelanceService {
       return { milestone: updated, deliverable };
     });
 
-    await this.notifications.notify(m.contract.clientId, {
+    this.notifications.notify(m.contract.clientId, {
       type: 'MILESTONE_SUBMITTED',
       title: '📦 Milestone ready for review',
       body: `A deliverable has been submitted for milestone "${m.title}". Please review and approve.`,
       metadata: { milestoneId, contractId: m.contractId },
-    });
+    }).catch(() => void 0);
 
     return result;
   }
@@ -371,12 +372,12 @@ export class FreelanceService {
       include: { deliverables: true },
     });
 
-    await this.notifications.notify(m.contract.freelancerId, {
+    this.notifications.notify(m.contract.freelancerId, {
       type: 'MILESTONE_REVISION',
       title: '🔄 Revision requested',
       body: `The client has requested a revision on milestone "${m.title}". Please update your deliverable.`,
       metadata: { milestoneId, contractId: m.contractId },
-    });
+    }).catch(() => void 0);
 
     return updated;
   }
