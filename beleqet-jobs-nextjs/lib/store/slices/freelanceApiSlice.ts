@@ -259,6 +259,14 @@ export const freelanceApi = api.injectEndpoints({
       }),
       invalidatesTags: ['Freelance'] as any,
     }),
+    updateJobStatus: builder.mutation<FreelanceJob, { id: string; status: 'COMPLETED' | 'CANCELLED' }>({
+      query: ({ id, status }) => ({
+        url: `/freelance/jobs/${id}/status`,
+        method: 'PATCH',
+        body: { status },
+      }),
+      invalidatesTags: ['Freelance'] as any,
+    }),
     submitBid: builder.mutation<Bid, { jobId: string; dto: CreateBidDto }>({
       query: ({ jobId, dto }) => ({
         url: `/freelance/jobs/${jobId}/bids`,
@@ -353,6 +361,7 @@ export const {
   useGetFreelanceJobQuery,
   useGetFreelanceCategoriesQuery,
   useCreateFreelanceJobMutation,
+  useUpdateJobStatusMutation,
   useSubmitBidMutation,
   useAcceptBidMutation,
   useGetMyBidsQuery,

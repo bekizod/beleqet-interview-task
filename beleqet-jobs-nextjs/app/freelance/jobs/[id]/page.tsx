@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useGetFreelanceJobQuery, useSubmitBidMutation, useAcceptBidMutation, useInitiateEscrowMutation } from '@/lib/store/slices/freelanceApiSlice';
+import { useGetFreelanceJobQuery, useSubmitBidMutation, useAcceptBidMutation, useInitiateEscrowMutation, useUpdateJobStatusMutation } from '@/lib/store/slices/freelanceApiSlice';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FreelanceJobPageProps {
@@ -16,6 +16,7 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
   const [submitBid, { isLoading: isSubmitting }] = useSubmitBidMutation();
   const [acceptBid, { isLoading: isAccepting }] = useAcceptBidMutation();
   const [initiateEscrow, { isLoading: isInitiating }] = useInitiateEscrowMutation();
+  const [updateJobStatus, { isLoading: isUpdatingStatus }] = useUpdateJobStatusMutation();
   const [formData, setFormData] = useState({ amount: '', timelineDays: '', coverLetter: '' });
 
   const isClient = user?.id === job?.clientId;
@@ -65,6 +66,15 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
       }
     } catch (error: any) {
       toast.error(error?.data?.message || 'Unable to initiate escrow.');
+    }
+  };
+
+  const handleUpdateStatus = async (status: 'COMPLETED' | 'CANCELLED') => {
+    try {
+      await updateJobStatus({ id, status }).unwrap();
+      toast.success(`Job ${status.toLowerCase()} successfully`);
+    } catch (error: any) {
+      toast.error(error?.data?.message || `Unable to ${status.toLowerCase()} job`);
     }
   };
 
@@ -196,6 +206,31 @@ export default function FreelanceJobPage({ params }: FreelanceJobPageProps) {
               >
                 {isInitiating ? 'Initiating...' : 'Fund Escrow'}
               </button>
+            </div>
+          )}
+
+          {isClient && (job.status === 'OPEN' || job.status === 'IN_PROGRESS') && (
+            <div className="rounded-2xl border border-border bg-white p-6">
+              <h2 className="text-base font-semibold text-ink mb-4">Manage Job</h2>
+              <p className="text-sm text-muted mb-4">
+                Close this job when the work is completed or if you need to cancel it.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleUpdateStatus('COMPLETED')}
+                  disabled={isUpdatingStatus}
+                  className="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                >
+                  {isUpdatingStatus ? 'Updating...' : 'Mark as Completed'}
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('CANCELLED')}
+                  disabled={isUpdatingStatus}
+                  className="w-full rounded-lg border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {isUpdatingStatus ? 'Updating...' : 'Cancel Job'}
+                </button>
+              </div>
             </div>
           )}
 

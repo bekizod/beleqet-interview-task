@@ -93,6 +93,21 @@ export class FreelanceService {
     });
   }
 
+  async updateJobStatus(jobId: string, clientId: string, status: 'COMPLETED' | 'CANCELLED') {
+    const job = await this.prisma.freelanceJob.findFirst({
+      where: { id: jobId, clientId },
+    });
+
+    if (!job) {
+      throw new NotFoundException('Job not found or you are not the owner');
+    }
+
+    return this.prisma.freelanceJob.update({
+      where: { id: jobId },
+      data: { status },
+    });
+  }
+
   async findJobs(query: { q?: string; category?: string; page?: number; limit?: number }) {
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 20;

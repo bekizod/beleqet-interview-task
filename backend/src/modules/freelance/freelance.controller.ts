@@ -24,6 +24,14 @@ export class FreelanceController {
   @UseGuards(JwtAuthGuard) @ApiBearerAuth()
   createJob(@CurrentUser() u: CurrentUserPayload, @Body() dto: CreateFreelanceJobDto) { return this.svc.createJob(u.userId, dto); }
 
+  @Patch('jobs/:id/status')
+  @UseGuards(JwtAuthGuard) @ApiBearerAuth()
+  updateJobStatus(
+    @Param('id') id: string,
+    @CurrentUser() u: CurrentUserPayload,
+    @Body() dto: { status: 'COMPLETED' | 'CANCELLED' }
+  ) { return this.svc.updateJobStatus(id, u.userId, dto.status); }
+
   @Post('jobs/:id/bids')
   @UseGuards(JwtAuthGuard) @ApiBearerAuth()
   submitBid(@Param('id') id: string, @CurrentUser() u: CurrentUserPayload, @Body() dto: CreateBidDto) { return this.svc.submitBid(u.userId, id, dto); }
