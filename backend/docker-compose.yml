@@ -32,37 +32,37 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - NODE_ENV=development
-      - PORT=4000
-      - FRONTEND_URL=http://localhost:3000
-      - DATABASE_URL=postgresql://neondb_owner:npg_YdKUR0k3TmEa@ep-rapid-star-adbnh6rm-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_TLS=false
-      - JWT_ACCESS_SECRET=MyMy#KEY12@!!$#%^RWEx12^(.Y.)MyMy#KEY12@!!$#%^RWEx12^
-      - JWT_ACCESS_EXPIRES=15m
-      - JWT_REFRESH_EXPIRES=30d
-      - OPENAI_API_KEY=sk-...
-      - OPENAI_MODEL=gpt-4o-mini
-      - TELEGRAM_BOT_TOKEN=8987895308:AAG5w5o1WjyCPgCZcIEjCumGgMr9NMW9Eh0
-      - TELEGRAM_CHANNEL_ID=-1001234567890
-      - CHAPA_SECRET_KEY=CHASECK_TEST-...
-      - CHAPA_PUBLIC_KEY=CHAPUBK_TEST-...
-      - CHAPA_WEBHOOK_SECRET=your_webhook_secret
-      - CHAPA_CALLBACK_URL=http://localhost:4000/api/v1/escrow/callback
-      - CHAPA_RETURN_URL=http://localhost:3000/freelance/payment-success
-      - AWS_S3_BUCKET=beleqet-uploads
-      - AWS_ACCESS_KEY_ID=your_access_key
-      - AWS_SECRET_ACCESS_KEY=your_secret_key
-      - AWS_REGION=us-east-1
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - SMTP_USER=eshetugetsh19@gmail.com
-      - SMTP_PASS=tnxh gbaw mqdu spzi
-      - EMAIL_FROM=Beleqet <noreply@beleqet.com>
-      - BULL_BOARD_USERNAME=admin
-      - BULL_BOARD_PASSWORD=your_board_password 
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=${PORT:-4000}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TLS=${REDIS_TLS:-false}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_ACCESS_EXPIRES=${JWT_ACCESS_EXPIRES:-15m}
+      - JWT_REFRESH_EXPIRES=${JWT_REFRESH_EXPIRES:-30d}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHANNEL_ID=${TELEGRAM_CHANNEL_ID}
+      - CHAPA_SECRET_KEY=${CHAPA_SECRET_KEY}
+      - CHAPA_PUBLIC_KEY=${CHAPA_PUBLIC_KEY}
+      - CHAPA_WEBHOOK_SECRET=${CHAPA_WEBHOOK_SECRET}
+      - CHAPA_CALLBACK_URL=${CHAPA_CALLBACK_URL:-http://localhost:4000/api/v1/escrow/callback}
+      - CHAPA_RETURN_URL=${CHAPA_RETURN_URL:-http://localhost:3000/freelance/payment-success}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM:-Beleqet <noreply@beleqet.com>}
+      - BULL_BOARD_USERNAME=${BULL_BOARD_USERNAME:-admin}
+      - BULL_BOARD_PASSWORD=${BULL_BOARD_PASSWORD} 
 
     depends_on:
       - db
